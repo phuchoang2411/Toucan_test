@@ -14,7 +14,6 @@ export function OutletListPage() {
       {sorted.length === 0 ? (
         <div className="empty-state">
           <p>No outlets yet. Add your first outlet to get started.</p>
-          <Link className="btn btn-primary" to="/outlets/new">+ New outlet</Link>
         </div>
       ) : (
         <div className="table-wrap">

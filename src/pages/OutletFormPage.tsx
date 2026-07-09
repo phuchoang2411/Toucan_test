@@ -1,5 +1,5 @@
-import { useMemo, useState, type FormEvent } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CHANNELS, SALES_REPS, STAGES, STAGE_LABELS, TIERS } from '../domain/types';
 import { localISODate } from '../domain/dates';
 import type { Channel, Stage, Tier } from '../domain/types';
@@ -13,6 +13,7 @@ export function OutletFormPage() {
   const navigate = useNavigate();
   const db = useDB();
   const editing = db.outlets.find((o) => o.id === id);
+  const formRef = useRef<HTMLFormElement>(null);
 
   const existingPlans = useMemo(
     () =>
@@ -39,7 +40,27 @@ export function OutletFormPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
-  if (id && !editing) return <p>Outlet not found.</p>;
+  useEffect(() => {
+    const keys = Object.keys(errors);
+    if (keys.length > 0) {
+      const first = keys[0];
+      const el = formRef.current?.querySelector<HTMLElement>(`[data-field="${first}"] input, [data-field="${first}"] select, [data-field="${first}"] textarea`);
+      el?.focus();
+    }
+  }, [errors]);
+
+  if (id && !editing)
+    return (
+      <section>
+        <header className="page-header">
+          <h1>Outlet not found</h1>
+        </header>
+        <div className="empty-state">
+          <p>No outlet with ID "{id}" exists.</p>
+          <Link className="btn btn-primary" to="/outlets">Back to Outlets</Link>
+        </div>
+      </section>
+    );
 
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -73,8 +94,9 @@ export function OutletFormPage() {
       );
       fireToast(editing ? 'Outlet updated' : 'Outlet created');
       navigate(schedule ? '/schedule' : '/outlets');
-    } catch {
+    } catch (e) {
       setSaving(false);
+      fireToast(e instanceof Error ? e.message : 'Failed to save outlet', 'error');
     }
   }
 
@@ -83,17 +105,17 @@ export function OutletFormPage() {
       <header className="page-header">
         <h1>{editing ? `Edit — ${editing.name}` : 'New outlet'}</h1>
       </header>
-      <form onSubmit={onSubmit} noValidate>
+      <form onSubmit={onSubmit} noValidate ref={formRef}>
         <div className="card">
-          <div className="field">
+          <div className="field" data-field="name">
             <label htmlFor="outlet-name">Name *</label>
-            <input id="outlet-name" value={form.name} onChange={set('name')} />
-            {errors.name && <span className="error-text">{errors.name}</span>}
+            <input id="outlet-name" value={form.name} onChange={set('name')} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'outlet-name-error' : undefined} />
+            {errors.name && <span className="error-text" id="outlet-name-error" role="alert">{errors.name}</span>}
           </div>
-          <div className="field">
+          <div className="field" data-field="address">
             <label htmlFor="outlet-address">Address *</label>
-            <input id="outlet-address" value={form.address} onChange={set('address')} />
-            {errors.address && <span className="error-text">{errors.address}</span>}
+            <input id="outlet-address" value={form.address} onChange={set('address')} aria-invalid={!!errors.address} aria-describedby={errors.address ? 'outlet-address-error' : undefined} />
+            {errors.address && <span className="error-text" id="outlet-address-error" role="alert">{errors.address}</span>}
           </div>
           <div className="field-row">
             <div className="field">
@@ -139,15 +161,15 @@ export function OutletFormPage() {
         <div className="card">
           <label className="checkbox-row">
             <input type="checkbox" checked={schedule} onChange={(e) => setSchedule(e.target.checked)} />
-            Schedule a visit (đi tuyến)
+            Schedule a visit (<span lang="vi">đi tuyến</span>)
           </label>
           {schedule && (
             <div className="field-group--conditional">
               <div className="field-row">
-                <div className="field">
+                <div className="field" data-field="visitDate">
                   <label htmlFor="visit-date">Visit date *</label>
-                  <input id="visit-date" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} />
-                  {errors.visitDate && <span className="error-text">{errors.visitDate}</span>}
+                  <input id="visit-date" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} aria-invalid={!!errors.visitDate} aria-describedby={errors.visitDate ? 'visit-date-error' : undefined} />
+                  {errors.visitDate && <span className="error-text" id="visit-date-error" role="alert">{errors.visitDate}</span>}
                 </div>
                 <div className="field">
                   <label htmlFor="target-stage">Target stage *</label>
@@ -156,10 +178,10 @@ export function OutletFormPage() {
                   </select>
                 </div>
               </div>
-              <div className="field">
+              <div className="field" data-field="objective">
                 <label htmlFor="visit-objective">Visit objective *</label>
-                <input id="visit-objective" value={objective} onChange={(e) => setObjective(e.target.value)} />
-                {errors.objective && <span className="error-text">{errors.objective}</span>}
+                <input id="visit-objective" value={objective} onChange={(e) => setObjective(e.target.value)} aria-invalid={!!errors.objective} aria-describedby={errors.objective ? 'visit-objective-error' : undefined} />
+                {errors.objective && <span className="error-text" id="visit-objective-error" role="alert">{errors.objective}</span>}
               </div>
             </div>
           )}

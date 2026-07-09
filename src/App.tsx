@@ -3,12 +3,15 @@ import { OutletListPage } from './pages/OutletListPage';
 import { OutletFormPage } from './pages/OutletFormPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { VisitDetailPage } from './pages/VisitDetailPage';
+import { NotFoundPage } from './pages/NotFoundPage';
 import { Toast } from './components/Toast';
+import { RouteFocus } from './components/RouteFocus';
 
 export default function App() {
   return (
     <div className="app">
       <Toast />
+      <RouteFocus />
       <nav className="topnav">
         <span className="brand">Magnolia Sales</span>
         <NavLink to="/outlets">Outlets</NavLink>
@@ -22,6 +25,7 @@ export default function App() {
           <Route path="/outlets/:id/edit" element={<OutletFormPage />} />
           <Route path="/schedule" element={<SchedulePage />} />
           <Route path="/visits/:id" element={<VisitDetailPage />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
     </div>

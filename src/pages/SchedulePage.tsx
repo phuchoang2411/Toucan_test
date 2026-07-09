@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useDB } from '../hooks/useDB';
 import { StageBadge } from '../components/StageBadge';
 import { SyncBadge } from '../components/SyncBadge';
@@ -32,7 +32,7 @@ export function SchedulePage() {
         </div>
       ) : (
         <div className="table-wrap">
-          <table className="table table-clickable">
+          <table className="table table-clickable" aria-label="Working schedule, click a row or the outlet name to open a visit">
             <thead>
               <tr>
                 <th>Date</th><th>Rep</th><th>Outlet</th><th>Address</th>
@@ -51,13 +51,13 @@ export function SchedulePage() {
                   >
                     <td>{v.visitDate}</td>
                     <td>{v.salesRep}</td>
-                    <td>{outlet?.name ?? '—'}</td>
+                    <td><Link to={`/visits/${v.id}`} onClick={(e) => e.stopPropagation()}>{outlet?.name ?? '—'}</Link></td>
                     <td>{outlet?.address ?? '—'}</td>
                     <td><StageBadge stage={v.currentStageSnapshot} /></td>
                     <td><StageBadge stage={v.targetStage} /></td>
                     <td>{v.objective}</td>
                     <td><SyncBadge visit={v} /></td>
-                    <td>{v.status}</td>
+                    <td><span className={`badge badge--${v.status}`}>{v.status}</span></td>
                   </tr>
                 );
               })}

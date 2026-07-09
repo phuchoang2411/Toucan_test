@@ -42,13 +42,17 @@ export function Toast() {
 }
 
 function ToastItem({ msg, onDone }: { msg: ToastMessage; onDone: (id: string) => void }) {
+  const isError = msg.variant === 'error';
   useEffect(() => {
-    const timer = setTimeout(() => onDone(msg.id), 3000);
+    const timer = setTimeout(() => onDone(msg.id), isError ? 8000 : 3000);
     return () => clearTimeout(timer);
-  }, [msg.id, onDone]);
+  }, [msg.id, onDone, isError]);
 
   return (
-    <div className={`${styles.toast} ${styles[msg.variant ?? 'success']}`} role="status">
+    <div
+      className={`${styles.toast} ${styles[msg.variant ?? 'success']}`}
+      role={isError ? 'alert' : 'status'}
+    >
       <span>{msg.text}</span>
       <button className={styles.close} onClick={() => onDone(msg.id)} aria-label="Dismiss">&times;</button>
     </div>

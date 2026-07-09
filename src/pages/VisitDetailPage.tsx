@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { EVIDENCE_TYPES, STAGES, STAGE_LABELS } from '../domain/types';
 import type { EvidenceType, Stage } from '../domain/types';
 import { useDB } from '../hooks/useDB';
@@ -28,24 +28,37 @@ export function VisitDetailPage() {
   const [newStage, setNewStage] = useState<Stage>(visit?.targetStage ?? 'SQL');
   const [evType, setEvType] = useState<EvidenceType>('photo');
   const [evName, setEvName] = useState('');
+  const [evError, setEvError] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [addingEvidence, setAddingEvidence] = useState(false);
 
-  if (!visit || !outlet) return <p>Visit not found.</p>;
+  if (!visit || !outlet)
+    return (
+      <section>
+        <header className="page-header">
+          <h1>Visit not found</h1>
+        </header>
+        <div className="empty-state">
+          <p>No visit with ID "{id}" exists.</p>
+          <Link className="btn btn-primary" to="/schedule">Back to Schedule</Link>
+        </div>
+      </section>
+    );
 
   const readOnly = visit.status === 'completed';
   const hasEvidence = evidence.length > 0;
 
   async function addEvidence() {
     if (!evName.trim()) return;
+    setEvError('');
     setAddingEvidence(true);
     try {
       await visitService.addEvidence(visit!.id, { type: evType, name: evName.trim() });
       fireToast('Evidence added');
       setEvName('');
     } catch {
-      setError('Failed to add evidence');
+      setEvError('Failed to add evidence');
     }
     setAddingEvidence(false);
   }
@@ -114,7 +127,10 @@ export function VisitDetailPage() {
                   placeholder="filename or note text (mock)"
                   value={evName}
                   onChange={(e) => setEvName(e.target.value)}
+                  aria-invalid={!!evError}
+                  aria-describedby={evError ? 'ev-error' : undefined}
                 />
+                {evError && <span className="error-text" id="ev-error" role="alert">{evError}</span>}
               </div>
               <button type="button" className="btn" onClick={addEvidence} disabled={addingEvidence} aria-busy={addingEvidence}>
                 {addingEvidence ? 'Adding…' : 'Add'}

@@ -10,6 +10,7 @@ export function SyncBadge({ visit }: { visit: Visit }) {
       {visit.misaSyncStatus === 'Failed' && (
         <button
           className={styles.retry}
+          aria-label={`Retry sync for ${visit.id.slice(0, 8)}`}
           onClick={(e) => {
             e.stopPropagation();
             syncService.retry(visit.id);
