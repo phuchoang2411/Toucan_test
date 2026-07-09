@@ -42,8 +42,17 @@ src/
 **MISA sync isolation (Ports & Adapters, spec §6):** business logic depends only
 on the `SyncService` interface and calls `syncService.enqueue(visitId)`. The mock
 adapter flips `Queued → Synced` (80%) / `Failed` (20%) after 1.5s, with a Retry
-button on `Failed`. Replacing the mock with the real MISA API is one new adapter
-class — zero changes to outlet/visit/stage logic.
+button on `Failed`. On every page load `syncService.resumePending()` re-enqueues
+visits still `Queued` from a previous session — the 1.5s timer is in-memory, but
+`Queued` is persisted, so a reload mid-sync would otherwise leave rows stuck. An
+in-flight timer for a visit is cleared before a new one is set, so re-saving the
+same visit within 1.5s never double-resolves. Replacing the mock with the real
+MISA API is one new adapter class — zero changes to outlet/visit/stage logic.
+
+**Reads:** UI components read via the reactive `useDB()` store subscription; the
+service query methods (`visitService.list/get/listEvidence`, `outletService.list/get`,
+`stageService`) are the REST-shaped read API a real backend swap would wire the
+hooks to. They are present for that contract, not invoked by the prototype's UI.
 
 ## Manual demo script (spec §10)
 
@@ -119,8 +128,14 @@ spec's open gaps:
    This is what makes the MISA badge flip `Queued → Synced/Failed` on its own
    ~1.5s after save.
 
-**Documented quirk (spec-faithful):** editing an outlet and changing the visit
-*date* creates a second plan on the new date via the A1 upsert key — the
-previously planned visit on the old date remains. Unchecking "schedule a visit"
-deletes **all** planned visits for the outlet (A4); completed ones are
-preserved.
+**Documented quirks (spec-faithful):**
+- **Date change:** editing an outlet and changing the visit *date* creates a
+  second plan on the new date via the A1 upsert key — the previously planned
+  visit on the old date remains.
+- **Rep change:** the upsert key includes `salesRep`, so editing an outlet and
+  changing the rep with "schedule a visit" checked creates a plan for the new
+  rep; the old rep's planned visit remains. (Reassigning ownership of an
+  existing visit is out of scope for this prototype.)
+- **Cancel:** unchecking "schedule a visit" deletes **all** planned visits for
+  the outlet and their attached evidence (A4); completed visits and their
+  evidence are preserved as immutable history.
