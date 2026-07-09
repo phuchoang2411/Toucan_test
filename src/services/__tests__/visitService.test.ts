@@ -77,6 +77,16 @@ describe('visitService.complete (BR3–BR5)', () => {
     expect(repository.getState().outlets[0].currentStage).toBe('SQL');
   });
 
+  it('completion enqueues the visit for sync (L4)', async () => {
+    resetDB({ outlets: [makeOutlet()], visits: [makeVisit({ misaSyncStatus: 'Synced' })] });
+    const visit = await visitService.complete({ visitId: 'v1', result: 'Done' });
+    expect(visit.misaSyncStatus).toBe('Queued');
+    expect(repository.getState().visits[0].misaSyncStatus).toBe('Queued');
+    vi.advanceTimersByTime(1500);
+    const resolved = repository.getState().visits[0].misaSyncStatus;
+    expect(['Synced', 'Failed']).toContain(resolved);
+  });
+
   it('completed visits are read-only: no re-complete, no late evidence', async () => {
     resetDB({ outlets: [makeOutlet()], visits: [makeVisit({ status: 'completed' })] });
     await expect(visitService.complete({ visitId: 'v1', result: 'again' })).rejects.toThrow('VISIT_READ_ONLY');

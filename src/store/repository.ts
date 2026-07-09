@@ -3,11 +3,24 @@ import { seedDB } from './seed';
 
 const STORAGE_KEY = 'magnolia-db-v1';
 
+function isValidDB(raw: unknown): raw is DB {
+  return (
+    typeof raw === 'object' &&
+    raw !== null &&
+    Array.isArray((raw as DB).outlets) &&
+    Array.isArray((raw as DB).visits) &&
+    Array.isArray((raw as DB).evidence) &&
+    Array.isArray((raw as DB).stageHistory)
+  );
+}
+
 function load(): DB | null {
   if (typeof localStorage === 'undefined') return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as DB) : null;
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return isValidDB(parsed) ? parsed : null;
   } catch {
     return null;
   }

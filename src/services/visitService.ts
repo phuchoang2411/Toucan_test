@@ -125,7 +125,8 @@ export const visitService = {
         : cur.stageHistory,
     }));
 
-    return completed;
+    syncService.enqueue(visit.id);
+    return { ...completed, misaSyncStatus: 'Queued' };
   },
 
   /** A4: cancelling the plan removes planned visits and their evidence; completed history is immutable. */

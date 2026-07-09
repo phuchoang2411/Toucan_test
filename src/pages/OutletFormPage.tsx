@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { CHANNELS, SALES_REPS, STAGES, STAGE_LABELS, TIERS } from '../domain/types';
 import { localISODate } from '../domain/dates';
 import type { Channel, Stage, Tier } from '../domain/types';
+import { StageBadge } from '../components/StageBadge';
 import { useDB } from '../hooks/useDB';
 import { outletService } from '../services/outletService';
 
@@ -12,13 +13,14 @@ export function OutletFormPage() {
   const db = useDB();
   const editing = db.outlets.find((o) => o.id === id);
 
-  const existingPlan = useMemo(
+  const existingPlans = useMemo(
     () =>
       db.visits
         .filter((v) => v.outletId === id && v.status === 'planned')
-        .sort((a, b) => a.visitDate.localeCompare(b.visitDate))[0],
+        .sort((a, b) => a.visitDate.localeCompare(b.visitDate)),
     [db.visits, id],
   );
+  const existingPlan = existingPlans[0];
 
   const [form, setForm] = useState({
     name: editing?.name ?? '',
@@ -103,10 +105,17 @@ export function OutletFormPage() {
               </select>
             </div>
             <div className="field">
-              <label>Current stage *</label>
-              <select value={form.currentStage} onChange={set('currentStage')}>
-                {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
-              </select>
+              <label>Current stage</label>
+              {editing ? (
+                <>
+                  <StageBadge stage={editing.currentStage} />
+                  <span className="muted">Change stage by completing a visit</span>
+                </>
+              ) : (
+                <select value={form.currentStage} onChange={set('currentStage')}>
+                  {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+                </select>
+              )}
             </div>
           </div>
           <div className="field">
@@ -143,7 +152,7 @@ export function OutletFormPage() {
             </div>
           )}
           {!schedule && existingPlan && (
-            <p className="warning-text">Saving with this unchecked cancels the planned visit on {existingPlan.visitDate}. Completed visits are kept.</p>
+            <p className="warning-text">Saving with this unchecked cancels {existingPlans.length > 1 ? `${existingPlans.length} planned visits on ` : 'the planned visit on '}{existingPlans.map((p) => p.visitDate).join(', ')}. Completed visits are kept.</p>
           )}
           {warnings.map((w) => <p key={w} className="warning-text">⚠ {w}</p>)}
         </div>

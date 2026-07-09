@@ -41,6 +41,17 @@ describe('outletService.save', () => {
     expect(repository.getState().visits.map((v) => v.id)).toEqual(['v-done']);
   });
 
+  it('editing an outlet does not change currentStage (M3)', async () => {
+    resetDB({
+      outlets: [makeOutlet({ currentStage: 'SQL' })],
+      visits: [],
+    });
+    await outletService.save({ id: 'o1', ...baseInput, currentStage: 'Won', name: 'Renamed' }, null);
+    const outlet = repository.getState().outlets[0];
+    expect(outlet.currentStage).toBe('SQL');
+    expect(outlet.name).toBe('Renamed');
+  });
+
   it('creating without a schedule creates no visit', async () => {
     resetDB();
     await outletService.save({ ...baseInput }, null);

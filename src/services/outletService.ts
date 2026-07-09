@@ -36,7 +36,7 @@ export const outletService = {
     if (input.id) {
       const existing = repository.getState().outlets.find((o) => o.id === input.id);
       if (!existing) throw new Error('OUTLET_NOT_FOUND');
-      outlet = { ...existing, ...input, id: existing.id, updatedAt: now };
+      outlet = { ...existing, ...input, id: existing.id, currentStage: existing.currentStage, updatedAt: now };
       repository.setState((cur) => ({
         ...cur,
         outlets: cur.outlets.map((o) => (o.id === outlet.id ? outlet : o)),
