@@ -88,6 +88,44 @@ describe('visitService.upsertPlanned (A1/BR2)', () => {
     ]);
   });
 
+  it('changing the sales rep on an outlet reassigns the planned visit it is bound to (visit follows the outlet)', async () => {
+    resetDB({ outlets: [makeOutlet({ salesRep: 'Linh' })], visits: [makeVisit({ salesRep: 'Phúc', misaSyncStatus: 'Synced' })] });
+    const { visit, created } = await visitService.upsertPlanned({
+      outletId: 'o1', salesRep: 'Linh', visitDate: '2026-07-10',
+      targetStage: 'ProposalSent', objective: 'Reassigned to new rep',
+      existingVisitId: 'v1',
+    });
+    expect(created).toBe(false);
+    expect(visit.id).toBe('v1');
+    expect(visit.salesRep).toBe('Linh');
+    const db = repository.getState();
+    expect(db.visits).toHaveLength(1);
+    expect(db.visits[0].salesRep).toBe('Linh');
+    expect(db.visits[0].misaSyncStatus).toBe('Queued');
+  });
+
+  it('reassigning onto a rep+date another planned visit already occupies is rejected', async () => {
+    resetDB({
+      outlets: [makeOutlet({ salesRep: 'Linh' })],
+      visits: [
+        makeVisit({ id: 'v1', salesRep: 'Phúc', visitDate: '2026-07-10' }),
+        makeVisit({ id: 'v2', salesRep: 'Linh', visitDate: '2026-07-10' }),
+      ],
+    });
+    await expect(
+      visitService.upsertPlanned({
+        outletId: 'o1', salesRep: 'Linh', visitDate: '2026-07-10',
+        targetStage: 'ProposalSent', objective: 'Reassign onto occupied slot',
+        existingVisitId: 'v1',
+      }),
+    ).rejects.toThrow('DATE_ALREADY_PLANNED');
+    const db = repository.getState();
+    expect(db.visits.map((v) => ({ id: v.id, rep: v.salesRep }))).toEqual([
+      { id: 'v1', rep: 'Phúc' },
+      { id: 'v2', rep: 'Linh' },
+    ]);
+  });
+
   it('saving on the same date with existingVisitId still just updates in place (no move needed)', async () => {
     resetDB({ outlets: [makeOutlet()], visits: [makeVisit()] });
     const { visit, created } = await visitService.upsertPlanned({

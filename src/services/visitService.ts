@@ -32,9 +32,10 @@ export const visitService = {
   /**
    * BR1/BR2 (A1): upsert keyed on (salesRep, outletId, visitDate) among planned visits only.
    * When `existingVisitId` names a different planned visit than the date match, the visit is
-   * moved to the new date (a reschedule) rather than forking a second plan — unless another
-   * planned visit already occupies the destination date, in which case the move is rejected
-   * so the two rows aren't silently merged (which would also mean discarding one's evidence).
+   * moved (a reschedule and/or rep reassignment — the visit follows the outlet) rather than
+   * forking a second plan — unless another planned visit already occupies the destination
+   * (rep, date), in which case the move is rejected so the two rows aren't silently merged
+   * (which would also mean discarding one's evidence).
    */
   async upsertPlanned(input: ScheduleVisitInput): Promise<{ visit: Visit; created: boolean }> {
     const db = repository.getState();
@@ -68,7 +69,7 @@ export const visitService = {
     }
 
     if (movingFrom) {
-      const moved: Visit = { ...movingFrom, visitDate: input.visitDate, targetStage: input.targetStage, objective: input.objective, updatedAt: now };
+      const moved: Visit = { ...movingFrom, salesRep: input.salesRep, visitDate: input.visitDate, targetStage: input.targetStage, objective: input.objective, updatedAt: now };
       repository.setState((cur) => ({
         ...cur,
         visits: cur.visits.map((v) => (v.id === movingFrom.id ? moved : v)),

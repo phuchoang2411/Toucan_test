@@ -139,10 +139,11 @@ còn mở của spec:
   form đang gắn vào (cùng id, cùng evidence, MISA xếp lại `Queued`) thay vì tách thành
   một kế hoạch thứ hai. Nếu đã có một buổi ghé thăm planned khác đúng vào ngày đích, việc
   dời lịch bị từ chối (`DATE_ALREADY_PLANNED`) thay vì âm thầm gộp hai dòng.
-- **Đổi rep:** khóa upsert bao gồm `salesRep`, nên việc sửa một outlet và đổi rep trong khi
-  vẫn chọn "lên lịch ghé thăm" sẽ tạo một kế hoạch cho rep mới; buổi ghé thăm planned của
-  rep cũ vẫn còn nguyên. (Việc chuyển quyền sở hữu của một buổi ghé thăm hiện có nằm ngoài
-  phạm vi của prototype này.)
+- **Đổi rep:** buổi ghé thăm đi theo outlet. Sửa một outlet và đổi rep trong khi vẫn chọn
+  "lên lịch ghé thăm" sẽ **chuyển** buổi ghé thăm mà form đang gắn vào sang rep mới (cùng
+  id, cùng evidence, MISA xếp lại `Queued`) thay vì để lại một kế hoạch mồ côi dưới tên rep
+  cũ. Nếu rep mới đã có sẵn một buổi ghé thăm planned đúng vào ngày đó, việc chuyển bị từ
+  chối (`DATE_ALREADY_PLANNED`) thay vì âm thầm gộp hai dòng.
 - **Hủy:** bỏ chọn "lên lịch ghé thăm" sẽ xóa **toàn bộ** các buổi ghé thăm planned của
   outlet cùng evidence đính kèm (A4); các buổi ghé thăm completed và evidence của chúng
   được giữ lại như lịch sử bất biến.

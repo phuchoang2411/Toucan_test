@@ -136,10 +136,12 @@ spec's open gaps:
   re-queued) rather than forking a second plan. If another planned visit
   already sits on the destination date, the move is rejected
   (`DATE_ALREADY_PLANNED`) instead of silently merging the two rows.
-- **Rep change:** the upsert key includes `salesRep`, so editing an outlet and
-  changing the rep with "schedule a visit" checked creates a plan for the new
-  rep; the old rep's planned visit remains. (Reassigning ownership of an
-  existing visit is out of scope for this prototype.)
+- **Rep change:** the visit follows the outlet. Editing an outlet and changing
+  the rep with "schedule a visit" checked **reassigns** the planned visit the
+  form is bound to (same id, same evidence, MISA re-queued) rather than
+  leaving an orphaned plan under the old rep. If the new rep already has a
+  planned visit on that date, the reassignment is rejected
+  (`DATE_ALREADY_PLANNED`) instead of silently merging the two rows.
 - **Cancel:** unchecking "schedule a visit" deletes **all** planned visits for
   the outlet and their attached evidence (A4); completed visits and their
   evidence are preserved as immutable history.

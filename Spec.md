@@ -48,7 +48,7 @@ The requirements intentionally leave gaps. These are the decisions I made, with 
 - Match key: `(salesRep, outletId, visitDate)` — date only, not time.
 - On match with a `planned` visit → update target stage, objective, notes; reset MISA sync to `Queued` (the external system needs the changed row again).
 - On match with a `completed` visit → create a new visit (it's a different, second meeting).
-- **Rescheduling** (editing an outlet's date on the plan the form is bound to) **moves that visit** to the new date instead of forking a second plan — the same row keeps its evidence and id, its MISA sync is re-queued. If another planned visit already occupies the destination date, the move is rejected (`DATE_ALREADY_PLANNED`) rather than silently merging two rows and discarding one's evidence.
+- **Rescheduling** (editing an outlet's date and/or sales rep on the plan the form is bound to) **moves that visit** to the new date and/or reassigns it to the new rep instead of forking a second plan — the same row keeps its evidence and id, its MISA sync is re-queued. If another planned visit already occupies the destination (rep, date), the move is rejected (`DATE_ALREADY_PLANNED`) rather than silently merging two rows and discarding one's evidence.
 
 ### A2. Stage transitions are free-form but fully logged
 The requirements define no transition rules (e.g., "can't skip stages").
@@ -69,7 +69,7 @@ Dates in the past are allowed **with a warning**, not blocked — reps sometimes
 `Won` outlets need ongoing care; `Lost` outlets can be revived. Scheduling remains allowed for all stages. (A stricter rule would be trivial to add later.)
 
 ### A7. Stage snapshot at scheduling time
-The visit stores `currentStageSnapshot` — the outlet's stage **when the visit was scheduled**. The outlet's live stage may change before the visit happens; the snapshot preserves what the plan looked like at planning time.
+The visit stores `currentStageSnapshot` — the outlet's stage **when the visit was scheduled**. The outlet's live stage may change before the visit happens; the snapshot preserves what the plan looked like at planning time. A reschedule or rep reassignment (A1) updates date/rep/target/objective on the existing row but deliberately leaves `currentStageSnapshot` untouched — it is not re-captured, since it documents the original planning moment, not the latest edit.
 
 ### A8. Evidence lives on the Visit, transitions reference the Visit
 Evidence is attached to a visit (it documents the meeting). A stage transition requires ≥1 evidence on the visit that triggers it, and `StageHistory` stores the `visitId` — so every transition is traceable to its proof without duplicating evidence records.
@@ -195,7 +195,7 @@ Consequence: replacing the repository with `fetch()` calls to a real Express/Mon
 
 **Validation summary:**
 - Outlet: name, address, channel, tier, salesRep, stage → required.
-- If "schedule a visit": visitDate, targetStage → required; past date → warning (A5); targetStage should differ from current stage → warning, not error.
+- If "schedule a visit": visitDate, targetStage, objective → required; past date → warning (A5); targetStage should differ from current stage → warning, not error.
 - Visit completion with stage change: ≥1 evidence → hard error (BR3).
 
 ---
