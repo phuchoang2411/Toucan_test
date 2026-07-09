@@ -58,8 +58,8 @@ The requirements define no transition rules (e.g., "can't skip stages").
 Target stage is captured at scheduling time as an *expectation*. When completing a visit, the rep chooses the actual new stage freely (defaulted to the target stage in the UI). The visit outcome, not the plan, decides.
 
 ### A4. Editing an outlet and unchecking "schedule a visit"
-- If the linked visit is still `planned` → it is deleted (the plan was cancelled).
-- If it is `completed` → it is kept (history is immutable).
+- **All** of the outlet's still-`planned` visits are deleted, together with their attached evidence (the plan was cancelled). The form warns before saving, listing the dates affected.
+- `completed` visits are kept (history is immutable).
 
 ### A5. Visit date validation
 Dates in the past are allowed **with a warning**, not blocked — reps sometimes log a visit after the fact. Blocking would push them to enter fake future dates.
@@ -78,6 +78,9 @@ No auth. "Sales rep" is a select field from a seeded list. Multi-user concerns (
 
 ### A10. Persistence
 In-memory store with localStorage persistence behind a service layer that mimics an async API. Rationale in §7.
+
+### A11. Initial stage is chosen freely at creation
+The evidence gate (BR3) governs stage *transitions*, not the *entry point*: when creating an outlet the rep picks the starting stage freely (an outlet being onboarded may already be mid-funnel from work done before the tool existed). From then on the stage is read-only on the edit form — it can only move through a completed visit with evidence. Whether creation should be restricted to early stages (or logged as a seed `StageHistory` row) is a question for the business owner.
 
 ---
 
@@ -231,3 +234,9 @@ Plus one pre-seeded planned visit and one completed visit with evidence, so the 
 ## 11. Out of Scope
 
 Real MISA integration, real file upload, auth/permissions, multi-tenant, route optimization, notifications, reporting. All noted as natural next steps.
+
+**Known limitations & open questions for the business owner:**
+
+- **Cancellations are not propagated to MISA.** Cancelling a plan (A4) deletes the visit locally, but the `SyncService` port (§6) has no `cancel` operation — the external system would keep a row for a visit that no longer exists. A real integration must answer: *how are deleted/cancelled schedule rows reconciled with MISA?*
+- **No `cancelled` visit status.** Cancelled plans are hard-deleted with their evidence rather than kept as records. A `cancelled` status would preserve the audit trail, enable cancelling a single visit (today unchecking the box cancels all of the outlet's plans), and give MISA an explicit cancellation signal.
+- **No missed/no-show handling.** A planned visit whose date passes stays `planned` indefinitely; there is no overdue state or workflow for visits that didn't happen.

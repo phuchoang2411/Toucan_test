@@ -58,8 +58,8 @@ Yêu cầu đề bài không định nghĩa quy tắc chuyển giai đoạn (ví
 Target stage được ghi nhận tại thời điểm lên lịch như một *kỳ vọng*. Khi hoàn tất buổi ghé thăm, rep tự do chọn giai đoạn mới thực tế (mặc định là target stage trên UI). Kết quả thực tế của buổi ghé thăm, chứ không phải kế hoạch, mới là yếu tố quyết định.
 
 ### A4. Sửa outlet và bỏ chọn "lên lịch ghé thăm"
-- Nếu buổi ghé thăm liên kết vẫn đang `planned` → nó sẽ bị xóa (kế hoạch đã bị hủy).
-- Nếu đã `completed` → nó được giữ lại (lịch sử là bất biến).
+- **Tất cả** các buổi ghé thăm còn đang `planned` của outlet sẽ bị xóa, kèm theo evidence đính kèm của chúng (kế hoạch đã bị hủy). Form sẽ cảnh báo trước khi lưu, liệt kê các ngày bị ảnh hưởng.
+- Các buổi ghé thăm đã `completed` được giữ lại (lịch sử là bất biến).
 
 ### A5. Kiểm tra ngày ghé thăm
 Ngày trong quá khứ được cho phép **kèm cảnh báo**, không bị chặn — đôi khi rep ghi nhận buổi ghé thăm sau khi đã diễn ra. Việc chặn sẽ buộc họ phải nhập ngày tương lai giả.
@@ -78,6 +78,9 @@ Không có xác thực (auth). "Sales rep" là một trường select từ danh 
 
 ### A10. Lưu trữ dữ liệu (Persistence)
 Store trong bộ nhớ (in-memory) kèm lưu trữ localStorage, đứng sau một tầng service mô phỏng một API bất đồng bộ. Lý do chi tiết ở mục §7.
+
+### A11. Giai đoạn khởi tạo được chọn tự do khi tạo mới
+Cổng bằng chứng (BR3) kiểm soát việc *chuyển* giai đoạn, không kiểm soát *điểm khởi đầu*: khi tạo outlet, rep tự do chọn giai đoạn ban đầu (một outlet mới được đưa vào hệ thống có thể đã ở giữa phễu nhờ công việc trước khi có công cụ này). Từ đó trở đi, giai đoạn ở form sửa là chỉ-đọc — chỉ có thể thay đổi thông qua một buổi ghé thăm hoàn tất kèm bằng chứng. Việc có nên giới hạn giai đoạn khởi tạo ở các giai đoạn đầu (hoặc ghi một dòng `StageHistory` khởi tạo) là câu hỏi dành cho chủ sở hữu nghiệp vụ.
 
 ---
 
@@ -231,3 +234,9 @@ Kèm theo một buổi ghé thăm đã lên lịch (planned) và một buổi gh
 ## 11. Ngoài phạm vi (Out of Scope)
 
 Tích hợp MISA thật, upload file thật, xác thực/phân quyền, đa tenant, tối ưu tuyến đường, thông báo, báo cáo. Tất cả đều được ghi nhận là các bước tiếp theo tự nhiên.
+
+**Hạn chế đã biết & câu hỏi mở cho chủ sở hữu nghiệp vụ:**
+
+- **Việc hủy lịch không được truyền sang MISA.** Hủy kế hoạch (A4) xóa buổi ghé thăm ở phía local, nhưng port `SyncService` (§6) không có thao tác `cancel` — hệ thống bên ngoài sẽ vẫn giữ một dòng cho buổi ghé thăm không còn tồn tại. Tích hợp thật phải trả lời được: *các dòng lịch bị xóa/hủy được đối soát với MISA như thế nào?*
+- **Không có trạng thái `cancelled` cho buổi ghé thăm.** Kế hoạch bị hủy sẽ bị xóa cứng kèm evidence thay vì được giữ lại làm bản ghi. Một trạng thái `cancelled` sẽ bảo toàn dấu vết kiểm toán, cho phép hủy từng buổi ghé thăm riêng lẻ (hiện tại bỏ chọn checkbox sẽ hủy toàn bộ kế hoạch của outlet), và cung cấp cho MISA một tín hiệu hủy rõ ràng.
+- **Không xử lý trường hợp lỡ hẹn/không diễn ra (no-show).** Một buổi ghé thăm planned đã qua ngày vẫn giữ trạng thái `planned` vô thời hạn; không có trạng thái quá hạn hay quy trình cho các buổi ghé thăm không diễn ra.

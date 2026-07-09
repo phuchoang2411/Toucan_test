@@ -50,6 +50,10 @@ export function OutletFormPage() {
     warnings.push('Visit date is in the past — allowed for after-the-fact logging, but double-check it.');
   if (schedule && targetStage === form.currentStage)
     warnings.push('Target stage equals the current stage — this visit plans no progression.');
+  if (schedule && existingPlan && visitDate && visitDate !== existingPlan.visitDate)
+    warnings.push(
+      `Changing the date plans a separate visit on ${visitDate} — the existing plan on ${existingPlan.visitDate} stays in the schedule. To cancel old plans, uncheck "Schedule a visit" and save first.`,
+    );
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
