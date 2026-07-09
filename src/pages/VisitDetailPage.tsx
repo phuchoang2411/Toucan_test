@@ -178,6 +178,9 @@ export function VisitDetailPage() {
                   {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
                 </select>
               </div>
+              {newStage === outlet.currentStage && (
+                <p className="warning-text">⚠ This is the outlet's current stage — no transition or history entry will be recorded.</p>
+              )}
             </div>
           )}
           {error && <p className="error-text">{error}</p>}

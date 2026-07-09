@@ -131,9 +131,11 @@ spec's open gaps:
    ~1.5s after save.
 
 **Documented quirks (spec-faithful):**
-- **Date change:** editing an outlet and changing the visit *date* creates a
-  second plan on the new date via the A1 upsert key — the previously planned
-  visit on the old date remains.
+- **Date change:** editing an outlet and changing the visit *date* **moves**
+  the planned visit the form is bound to (same id, same evidence, MISA
+  re-queued) rather than forking a second plan. If another planned visit
+  already sits on the destination date, the move is rejected
+  (`DATE_ALREADY_PLANNED`) instead of silently merging the two rows.
 - **Rep change:** the upsert key includes `salesRep`, so editing an outlet and
   changing the rep with "schedule a visit" checked creates a plan for the new
   rep; the old rep's planned visit remains. (Reassigning ownership of an

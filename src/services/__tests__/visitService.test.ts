@@ -44,6 +44,61 @@ describe('visitService.upsertPlanned (A1/BR2)', () => {
     expect(visit.status).toBe('planned');
     expect(visit.misaSyncStatus).toBe('Queued');
   });
+
+  it('rescheduling (existingVisitId, new date) moves the plan in place instead of forking', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ misaSyncStatus: 'Synced' })],
+      evidence: [makeEvidence()],
+    });
+    const { visit, created } = await visitService.upsertPlanned({
+      outletId: 'o1', salesRep: 'Phúc', visitDate: '2026-07-15',
+      targetStage: 'ProposalSent', objective: 'Rescheduled meeting',
+      existingVisitId: 'v1',
+    });
+    expect(created).toBe(false);
+    expect(visit.id).toBe('v1');
+    expect(visit.visitDate).toBe('2026-07-15');
+    const db = repository.getState();
+    expect(db.visits).toHaveLength(1);
+    expect(db.visits[0].visitDate).toBe('2026-07-15');
+    expect(db.visits[0].misaSyncStatus).toBe('Queued');
+    expect(db.evidence.map((e) => e.visitId)).toEqual(['v1']); // evidence follows the moved row
+  });
+
+  it('rescheduling onto a date another planned visit already occupies is rejected, not silently merged', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [
+        makeVisit({ id: 'v1', visitDate: '2026-07-10' }),
+        makeVisit({ id: 'v2', visitDate: '2026-07-20' }),
+      ],
+    });
+    await expect(
+      visitService.upsertPlanned({
+        outletId: 'o1', salesRep: 'Phúc', visitDate: '2026-07-20',
+        targetStage: 'ProposalSent', objective: 'Move onto occupied date',
+        existingVisitId: 'v1',
+      }),
+    ).rejects.toThrow('DATE_ALREADY_PLANNED');
+    const db = repository.getState();
+    expect(db.visits.map((v) => ({ id: v.id, date: v.visitDate }))).toEqual([
+      { id: 'v1', date: '2026-07-10' },
+      { id: 'v2', date: '2026-07-20' },
+    ]);
+  });
+
+  it('saving on the same date with existingVisitId still just updates in place (no move needed)', async () => {
+    resetDB({ outlets: [makeOutlet()], visits: [makeVisit()] });
+    const { visit, created } = await visitService.upsertPlanned({
+      outletId: 'o1', salesRep: 'Phúc', visitDate: '2026-07-10',
+      targetStage: 'Won', objective: 'Same date re-save',
+      existingVisitId: 'v1',
+    });
+    expect(created).toBe(false);
+    expect(visit.id).toBe('v1');
+    expect(repository.getState().visits).toHaveLength(1);
+  });
 });
 
 describe('visitService.complete (BR3–BR5)', () => {

@@ -48,6 +48,7 @@ The requirements intentionally leave gaps. These are the decisions I made, with 
 - Match key: `(salesRep, outletId, visitDate)` — date only, not time.
 - On match with a `planned` visit → update target stage, objective, notes; reset MISA sync to `Queued` (the external system needs the changed row again).
 - On match with a `completed` visit → create a new visit (it's a different, second meeting).
+- **Rescheduling** (editing an outlet's date on the plan the form is bound to) **moves that visit** to the new date instead of forking a second plan — the same row keeps its evidence and id, its MISA sync is re-queued. If another planned visit already occupies the destination date, the move is rejected (`DATE_ALREADY_PLANNED`) rather than silently merging two rows and discarding one's evidence.
 
 ### A2. Stage transitions are free-form but fully logged
 The requirements define no transition rules (e.g., "can't skip stages").

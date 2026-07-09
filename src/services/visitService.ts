@@ -8,6 +8,8 @@ export interface ScheduleVisitInput {
   visitDate: string; // 'YYYY-MM-DD'
   targetStage: Stage;
   objective: string;
+  /** The planned visit the form is editing — reschedule moves this row instead of forking a new one. */
+  existingVisitId?: string;
 }
 
 export interface CompleteVisitInput {
@@ -27,13 +29,19 @@ export const visitService = {
     return repository.getState().visits.find((v) => v.id === id);
   },
 
-  /** BR1/BR2 (A1): upsert keyed on (salesRep, outletId, visitDate) among planned visits only. */
+  /**
+   * BR1/BR2 (A1): upsert keyed on (salesRep, outletId, visitDate) among planned visits only.
+   * When `existingVisitId` names a different planned visit than the date match, the visit is
+   * moved to the new date (a reschedule) rather than forking a second plan — unless another
+   * planned visit already occupies the destination date, in which case the move is rejected
+   * so the two rows aren't silently merged (which would also mean discarding one's evidence).
+   */
   async upsertPlanned(input: ScheduleVisitInput): Promise<{ visit: Visit; created: boolean }> {
     const db = repository.getState();
     const outlet = db.outlets.find((o) => o.id === input.outletId);
     if (!outlet) throw new Error('OUTLET_NOT_FOUND');
 
-    const existing = db.visits.find(
+    const dateMatch = db.visits.find(
       (v) =>
         v.status === 'planned' &&
         v.salesRep === input.salesRep &&
@@ -41,16 +49,32 @@ export const visitService = {
         v.visitDate === input.visitDate,
     );
 
+    const movingFrom =
+      input.existingVisitId && input.existingVisitId !== dateMatch?.id
+        ? db.visits.find((v) => v.id === input.existingVisitId && v.status === 'planned')
+        : undefined;
+
     const now = new Date().toISOString();
 
-    if (existing) {
-      const updated: Visit = { ...existing, targetStage: input.targetStage, objective: input.objective, updatedAt: now };
+    if (dateMatch) {
+      if (movingFrom) throw new Error('DATE_ALREADY_PLANNED'); // another plan already sits on that date
+      const updated: Visit = { ...dateMatch, targetStage: input.targetStage, objective: input.objective, updatedAt: now };
       repository.setState((cur) => ({
         ...cur,
-        visits: cur.visits.map((v) => (v.id === existing.id ? updated : v)),
+        visits: cur.visits.map((v) => (v.id === dateMatch.id ? updated : v)),
       }));
-      syncService.enqueue(existing.id); // changed row → external system needs it again (A1)
+      syncService.enqueue(dateMatch.id); // changed row → external system needs it again (A1)
       return { visit: { ...updated, misaSyncStatus: 'Queued' }, created: false };
+    }
+
+    if (movingFrom) {
+      const moved: Visit = { ...movingFrom, visitDate: input.visitDate, targetStage: input.targetStage, objective: input.objective, updatedAt: now };
+      repository.setState((cur) => ({
+        ...cur,
+        visits: cur.visits.map((v) => (v.id === movingFrom.id ? moved : v)),
+      }));
+      syncService.enqueue(movingFrom.id); // moved row → external system needs it again
+      return { visit: { ...moved, misaSyncStatus: 'Queued' }, created: false };
     }
 
     const visit: Visit = {

@@ -72,8 +72,10 @@ export function OutletFormPage() {
   if (schedule && targetStage === form.currentStage)
     warnings.push('Target stage equals the current stage — this visit plans no progression.');
   if (schedule && existingPlan && visitDate && visitDate !== existingPlan.visitDate)
+    warnings.push(`This reschedules the planned visit from ${existingPlan.visitDate} to ${visitDate}.`);
+  if (schedule && existingPlans.length > 1)
     warnings.push(
-      `Changing the date plans a separate visit on ${visitDate} — the existing plan on ${existingPlan.visitDate} stays in the schedule. To cancel old plans, uncheck "Schedule a visit" and save first.`,
+      `This outlet has ${existingPlans.length} planned visits (${existingPlans.map((p) => p.visitDate).join(', ')}). This form edits the earliest one (${existingPlan.visitDate}); the others are untouched.`,
     );
 
   async function onSubmit(e: FormEvent) {
@@ -90,13 +92,21 @@ export function OutletFormPage() {
     try {
       await outletService.save(
         { id: editing?.id, ...form, notes: form.notes || undefined },
-        schedule ? { visitDate, targetStage, objective } : null,
+        schedule ? { visitDate, targetStage, objective, existingVisitId: existingPlan?.id } : null,
       );
       fireToast(editing ? 'Outlet updated' : 'Outlet created');
       navigate(schedule ? '/schedule' : '/outlets');
     } catch (e) {
       setSaving(false);
-      fireToast(e instanceof Error ? e.message : 'Failed to save outlet', 'error');
+      const code = e instanceof Error ? e.message : String(e);
+      fireToast(
+        code === 'DATE_ALREADY_PLANNED'
+          ? 'This outlet already has a different planned visit on that date — pick another date.'
+          : code === 'OUTLET_NOT_FOUND'
+            ? 'This outlet no longer exists — it may have been deleted elsewhere.'
+            : 'Failed to save outlet',
+        'error',
+      );
     }
   }
 

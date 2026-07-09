@@ -48,6 +48,7 @@ Yêu cầu đề bài cố tình để lại một số khoảng trống. Đây 
 - Khóa khớp (match key): `(salesRep, outletId, visitDate)` — chỉ tính ngày, không tính giờ.
 - Khi khớp với một buổi ghé thăm `planned` → cập nhật target stage, mục tiêu, ghi chú; reset MISA sync về `Queued` (hệ thống bên ngoài cần nhận lại dòng đã thay đổi).
 - Khi khớp với một buổi ghé thăm `completed` → tạo buổi ghé thăm mới (đây là một cuộc gặp thứ hai, khác biệt).
+- **Dời lịch** (sửa ngày trên kế hoạch mà form đang gắn vào) sẽ **di chuyển** buổi ghé thăm đó sang ngày mới thay vì tách thành một kế hoạch thứ hai — cùng id, cùng evidence, MISA được xếp lại `Queued`. Nếu đã có một buổi ghé thăm `planned` khác đúng vào ngày đích, việc dời lịch bị từ chối (`DATE_ALREADY_PLANNED`) thay vì âm thầm gộp hai dòng và làm mất evidence của một trong hai.
 
 ### A2. Chuyển giai đoạn tự do nhưng được ghi log đầy đủ
 Yêu cầu đề bài không định nghĩa quy tắc chuyển giai đoạn (ví dụ: "không được bỏ qua giai đoạn").

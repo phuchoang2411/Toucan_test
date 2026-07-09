@@ -135,9 +135,10 @@ còn mở của spec:
    lưu.
 
 **Các điểm đặc biệt đã ghi nhận (trung thành với spec):**
-- **Đổi ngày:** sửa một outlet và đổi *ngày* ghé thăm sẽ tạo ra một kế hoạch thứ hai vào
-  ngày mới thông qua khóa upsert A1 — buổi ghé thăm planned trước đó ở ngày cũ vẫn còn
-  nguyên.
+- **Đổi ngày:** sửa một outlet và đổi *ngày* ghé thăm sẽ **di chuyển** buổi ghé thăm mà
+  form đang gắn vào (cùng id, cùng evidence, MISA xếp lại `Queued`) thay vì tách thành
+  một kế hoạch thứ hai. Nếu đã có một buổi ghé thăm planned khác đúng vào ngày đích, việc
+  dời lịch bị từ chối (`DATE_ALREADY_PLANNED`) thay vì âm thầm gộp hai dòng.
 - **Đổi rep:** khóa upsert bao gồm `salesRep`, nên việc sửa một outlet và đổi rep trong khi
   vẫn chọn "lên lịch ghé thăm" sẽ tạo một kế hoạch cho rep mới; buổi ghé thăm planned của
   rep cũ vẫn còn nguyên. (Việc chuyển quyền sở hữu của một buổi ghé thăm hiện có nằm ngoài
