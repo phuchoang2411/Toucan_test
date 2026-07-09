@@ -2,6 +2,8 @@
 
 **Spec & Assumptions Document** · Prototype for technical assessment · Author: Hoàng Phúc
 
+*(Tiếng Việt: [`Spec.vi.md`](./Spec.vi.md))*
+
 ---
 
 ## 1. Overview

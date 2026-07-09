@@ -1,5 +1,7 @@
 # Magnolia Sales — C.A Outlet & Working Schedule Module
 
+*(Tiếng Việt: [`README.vi.md`](./README.vi.md))*
+
 Prototype module of Magnolia's internal sales app. Sales reps acquire new outlets
 (cafes, bars, restaurants, hotels, bakeries) and move them through a sales funnel.
 Progress is driven by **field visits ("đi tuyến")**, and every stage transition must
