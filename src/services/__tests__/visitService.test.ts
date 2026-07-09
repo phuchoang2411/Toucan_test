@@ -83,3 +83,23 @@ describe('visitService.complete (BR3–BR5)', () => {
     await expect(visitService.addEvidence('v1', { type: 'note', name: 'late note' })).rejects.toThrow('VISIT_READ_ONLY');
   });
 });
+
+describe('visitService.deletePlannedForOutlet (A4, M2)', () => {
+  it('removes planned visits and their evidence; preserves completed visits and their evidence', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [
+        makeVisit({ id: 'v-planned', status: 'planned' }),
+        makeVisit({ id: 'v-done', status: 'completed' }),
+      ],
+      evidence: [
+        makeEvidence({ id: 'e-planned', visitId: 'v-planned' }),
+        makeEvidence({ id: 'e-done', visitId: 'v-done' }),
+      ],
+    });
+    await visitService.deletePlannedForOutlet('o1');
+    const db = repository.getState();
+    expect(db.visits.map((v) => v.id)).toEqual(['v-done']);
+    expect(db.evidence.map((e) => e.id)).toEqual(['e-done']);
+  });
+});

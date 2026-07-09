@@ -128,11 +128,17 @@ export const visitService = {
     return completed;
   },
 
-  /** A4: cancelling the plan removes planned visits only; completed history is immutable. */
+  /** A4: cancelling the plan removes planned visits and their evidence; completed history is immutable. */
   async deletePlannedForOutlet(outletId: string): Promise<void> {
-    repository.setState((cur) => ({
-      ...cur,
-      visits: cur.visits.filter((v) => !(v.outletId === outletId && v.status === 'planned')),
-    }));
+    repository.setState((cur) => {
+      const removed = new Set(
+        cur.visits.filter((v) => v.outletId === outletId && v.status === 'planned').map((v) => v.id),
+      );
+      return {
+        ...cur,
+        visits: cur.visits.filter((v) => !removed.has(v.id)),
+        evidence: cur.evidence.filter((e) => !removed.has(e.visitId)),
+      };
+    });
   },
 };
