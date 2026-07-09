@@ -1,10 +1,5 @@
 import type { DB } from '../domain/types';
-
-function isoDate(offsetDays: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + offsetDays);
-  return d.toISOString().slice(0, 10);
-}
+import { localISODate } from '../domain/dates';
 
 export function seedDB(): DB {
   const now = new Date().toISOString();
@@ -15,8 +10,8 @@ export function seedDB(): DB {
       { id: 'outlet-maison-saigon', name: 'Maison Saigon Bistro', address: '8 Đồng Khởi, Q1, HCMC', channel: 'Restaurant', tier: 'A', salesRep: 'Minh', currentStage: 'CustomerSampling', createdAt: now, updatedAt: now },
     ],
     visits: [
-      { id: 'visit-planned-1', outletId: 'outlet-blue-lotus', salesRep: 'Phúc', visitDate: isoDate(1), currentStageSnapshot: 'SQL', targetStage: 'CustomerSampling', objective: 'Drop off sample pack', status: 'planned', misaSyncStatus: 'Synced', createdAt: now, updatedAt: now },
-      { id: 'visit-completed-1', outletId: 'outlet-maison-saigon', salesRep: 'Minh', visitDate: isoDate(-3), currentStageSnapshot: 'SQL', targetStage: 'CustomerSampling', objective: 'Run tasting session', status: 'completed', result: 'Tasting went well, chef approved 2 SKUs', misaSyncStatus: 'Synced', createdAt: now, updatedAt: now },
+      { id: 'visit-planned-1', outletId: 'outlet-blue-lotus', salesRep: 'Phúc', visitDate: localISODate(1), currentStageSnapshot: 'SQL', targetStage: 'CustomerSampling', objective: 'Drop off sample pack', status: 'planned', misaSyncStatus: 'Synced', createdAt: now, updatedAt: now },
+      { id: 'visit-completed-1', outletId: 'outlet-maison-saigon', salesRep: 'Minh', visitDate: localISODate(-3), currentStageSnapshot: 'SQL', targetStage: 'CustomerSampling', objective: 'Run tasting session', status: 'completed', result: 'Tasting went well, chef approved 2 SKUs', misaSyncStatus: 'Synced', createdAt: now, updatedAt: now },
     ],
     evidence: [
       { id: 'evidence-1', visitId: 'visit-completed-1', type: 'photo', name: 'tasting-session.jpg', uploadedAt: now },

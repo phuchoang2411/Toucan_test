@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { CHANNELS, SALES_REPS, STAGES, STAGE_LABELS, TIERS } from '../domain/types';
+import { localISODate } from '../domain/dates';
 import type { Channel, Stage, Tier } from '../domain/types';
 import { useDB } from '../hooks/useDB';
 import { outletService } from '../services/outletService';
@@ -39,7 +40,7 @@ export function OutletFormPage() {
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localISODate();
   const warnings: string[] = [];
   if (schedule && visitDate && visitDate < today)
     warnings.push('Visit date is in the past — allowed for after-the-fact logging, but double-check it.');
