@@ -3,10 +3,12 @@ import { OutletListPage } from './pages/OutletListPage';
 import { OutletFormPage } from './pages/OutletFormPage';
 import { SchedulePage } from './pages/SchedulePage';
 import { VisitDetailPage } from './pages/VisitDetailPage';
+import { Toast } from './components/Toast';
 
 export default function App() {
   return (
     <div className="app">
+      <Toast />
       <nav className="topnav">
         <span className="brand">Magnolia Sales</span>
         <NavLink to="/outlets">Outlets</NavLink>

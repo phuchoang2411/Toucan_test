@@ -1,5 +1,6 @@
 import type { Visit } from '../domain/types';
 import { syncService } from '../services/syncService';
+import { fireToast } from './Toast';
 import styles from './SyncBadge.module.css';
 
 export function SyncBadge({ visit }: { visit: Visit }) {
@@ -12,6 +13,7 @@ export function SyncBadge({ visit }: { visit: Visit }) {
           onClick={(e) => {
             e.stopPropagation();
             syncService.retry(visit.id);
+            fireToast('Sync retry queued', 'info');
           }}
         >
           Retry

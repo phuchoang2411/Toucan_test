@@ -1,0 +1,8 @@
+.container { position: fixed; top: 16px; right: 16px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; max-width: 360px; }
+.toast { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 8px; font-size: 14px; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); animation: slideIn 0.25s ease-out; }
+.success { background: #d1fae5; color: #047857; border: 1px solid #a7f3d0; }
+.error { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+.info { background: #dbeafe; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.close { background: none; border: none; font-size: 18px; cursor: pointer; padding: 0 2px; line-height: 1; color: inherit; opacity: 0.6; margin-left: auto; flex-shrink: 0; }
+.close:hover { opacity: 1; }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

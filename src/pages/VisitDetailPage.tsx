@@ -6,6 +6,7 @@ import { useDB } from '../hooks/useDB';
 import { visitService } from '../services/visitService';
 import { StageBadge } from '../components/StageBadge';
 import { SyncBadge } from '../components/SyncBadge';
+import { fireToast } from '../components/Toast';
 
 export function VisitDetailPage() {
   const { id } = useParams();
@@ -28,6 +29,8 @@ export function VisitDetailPage() {
   const [evType, setEvType] = useState<EvidenceType>('photo');
   const [evName, setEvName] = useState('');
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [addingEvidence, setAddingEvidence] = useState(false);
 
   if (!visit || !outlet) return <p>Visit not found.</p>;
 
@@ -36,12 +39,20 @@ export function VisitDetailPage() {
 
   async function addEvidence() {
     if (!evName.trim()) return;
-    await visitService.addEvidence(visit!.id, { type: evType, name: evName.trim() });
-    setEvName('');
+    setAddingEvidence(true);
+    try {
+      await visitService.addEvidence(visit!.id, { type: evType, name: evName.trim() });
+      fireToast('Evidence added');
+      setEvName('');
+    } catch {
+      setError('Failed to add evidence');
+    }
+    setAddingEvidence(false);
   }
 
   async function save() {
     setError('');
+    setSaving(true);
     try {
       await visitService.complete({
         visitId: visit!.id,
@@ -49,6 +60,7 @@ export function VisitDetailPage() {
         resultNotes: resultNotes || undefined,
         newStage: changeStage ? newStage : null,
       });
+      fireToast('Visit completed');
       navigate('/schedule');
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -59,6 +71,7 @@ export function VisitDetailPage() {
             ? 'Result is required to complete a visit.'
             : message,
       );
+      setSaving(false);
     }
   }
 
@@ -87,17 +100,25 @@ export function VisitDetailPage() {
         </ul>
         {!readOnly && (
           <div className="field-row">
-            <select value={evType} onChange={(e) => setEvType(e.target.value as EvidenceType)}>
-              {EVIDENCE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                placeholder="filename or note text (mock)"
-                value={evName}
-                onChange={(e) => setEvName(e.target.value)}
-                style={{ flex: 1 }}
-              />
-              <button type="button" className="btn" onClick={addEvidence}>Add</button>
+            <div className="field">
+              <label htmlFor="ev-type">Type</label>
+              <select id="ev-type" value={evType} onChange={(e) => setEvType(e.target.value as EvidenceType)}>
+                {EVIDENCE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+              <div className="field" style={{ flex: 1 }}>
+                <label htmlFor="ev-name">Filename or note</label>
+                <input
+                  id="ev-name"
+                  placeholder="filename or note text (mock)"
+                  value={evName}
+                  onChange={(e) => setEvName(e.target.value)}
+                />
+              </div>
+              <button type="button" className="btn" onClick={addEvidence} disabled={addingEvidence} aria-busy={addingEvidence}>
+                {addingEvidence ? 'Adding…' : 'Add'}
+              </button>
             </div>
           </div>
         )}
@@ -114,14 +135,14 @@ export function VisitDetailPage() {
         <div className="card">
           <h2>Complete visit</h2>
           <div className="field">
-            <label>Result *</label>
-            <input value={result} onChange={(e) => setResult(e.target.value)} />
+            <label htmlFor="visit-result">Result *</label>
+            <input id="visit-result" value={result} onChange={(e) => setResult(e.target.value)} />
           </div>
           <div className="field">
-            <label>Notes</label>
-            <textarea rows={2} value={resultNotes} onChange={(e) => setResultNotes(e.target.value)} />
+            <label htmlFor="visit-result-notes">Notes</label>
+            <textarea id="visit-result-notes" rows={2} value={resultNotes} onChange={(e) => setResultNotes(e.target.value)} />
           </div>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontWeight: 600 }}>
+          <label className="checkbox-row">
             <input
               type="checkbox"
               checked={changeStage}
@@ -134,16 +155,18 @@ export function VisitDetailPage() {
             <p className="muted">Add at least one piece of evidence to unlock stage change (BR3).</p>
           )}
           {changeStage && (
-            <div className="field" style={{ marginTop: 8 }}>
-              <label>New stage (defaults to target)</label>
-              <select value={newStage} onChange={(e) => setNewStage(e.target.value as Stage)}>
-                {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
-              </select>
+            <div className="field-group--conditional">
+              <div className="field">
+                <label htmlFor="visit-new-stage">New stage (defaults to target)</label>
+                <select id="visit-new-stage" value={newStage} onChange={(e) => setNewStage(e.target.value as Stage)}>
+                  {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+                </select>
+              </div>
             </div>
           )}
           {error && <p className="error-text">{error}</p>}
-          <button className="btn btn-primary" style={{ marginTop: 12 }} type="button" onClick={save}>
-            Complete visit
+          <button className="btn btn-primary" style={{ marginTop: 12 }} type="button" onClick={save} disabled={saving} aria-busy={saving}>
+            {saving ? 'Completing…' : 'Complete visit'}
           </button>
         </div>
       )}
@@ -151,20 +174,22 @@ export function VisitDetailPage() {
       <div className="card">
         <h2>Stage history — {outlet.name}</h2>
         {history.length === 0 && <p className="muted">No transitions yet.</p>}
-        <table className="table">
-          <thead><tr><th>When</th><th>From</th><th>To</th><th>By</th><th>Visit</th></tr></thead>
-          <tbody>
-            {history.map((h) => (
-              <tr key={h.id}>
-                <td>{new Date(h.changedAt).toLocaleString()}</td>
-                <td><StageBadge stage={h.fromStage} /></td>
-                <td><StageBadge stage={h.toStage} /></td>
-                <td>{h.changedBy}</td>
-                <td className="muted">{h.visitId.slice(0, 8)}…</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-wrap">
+          <table className="table">
+            <thead><tr><th>When</th><th>From</th><th>To</th><th>By</th><th>Visit</th></tr></thead>
+            <tbody>
+              {history.map((h) => (
+                <tr key={h.id}>
+                  <td>{new Date(h.changedAt).toLocaleString()}</td>
+                  <td><StageBadge stage={h.fromStage} /></td>
+                  <td><StageBadge stage={h.toStage} /></td>
+                  <td>{h.changedBy}</td>
+                  <td className="muted">{h.visitId.slice(0, 8)}...</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   );
