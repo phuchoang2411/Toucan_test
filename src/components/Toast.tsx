@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import styles from './Toast.module.css';
+import { t } from '../strings';
 
 export interface ToastMessage {
   id: string;
@@ -54,7 +55,7 @@ function ToastItem({ msg, onDone }: { msg: ToastMessage; onDone: (id: string) =>
       role={isError ? 'alert' : 'status'}
     >
       <span>{msg.text}</span>
-      <button className={styles.close} onClick={() => onDone(msg.id)} aria-label="Dismiss">&times;</button>
+      <button className={styles.close} onClick={() => onDone(msg.id)} aria-label={t('dismiss_aria')}>&times;</button>
     </div>
   );
 }
