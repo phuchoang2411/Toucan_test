@@ -3,6 +3,7 @@ import { useScopedDB } from '../hooks/useScopedDB';
 import { STAGES, STAGE_LABELS, SALES_REPS } from '../domain/types';
 import { isOverdue } from '../domain/visits';
 import { localISODate, localWeekRange } from '../domain/dates';
+import { t } from '../strings';
 
 export function DashboardPage() {
   const db = useScopedDB();
@@ -36,11 +37,11 @@ export function DashboardPage() {
   return (
     <section>
       <header className="page-header">
-        <h1>Dashboard</h1>
+        <h1>{t('dashboard_title')}</h1>
       </header>
 
       <div className="card">
-        <h2>Outlets per stage</h2>
+        <h2>{t('outlets_per_stage')}</h2>
         {STAGES.map((stage) => {
           const count = db.outlets.filter((o) => o.currentStage === stage).length;
           const pct = Math.round((count / maxStageCount) * 100);
@@ -66,11 +67,11 @@ export function DashboardPage() {
       </div>
 
       <div className="card">
-        <h2>Per-rep breakdown</h2>
+        <h2>{t('per_rep_breakdown')}</h2>
         <div className="table-wrap">
           <table className="table">
             <thead>
-              <tr><th>Rep</th><th>Outlets</th><th>Planned</th><th>Overdue</th><th>Completed</th></tr>
+              <tr><th>{t('rep_header')}</th><th>{t('outlets_header')}</th><th>{t('planned_header')}</th><th>{t('overdue_header')}</th><th>{t('completed_header')}</th></tr>
             </thead>
             <tbody>
               {repRows.map((r) => (
@@ -102,9 +103,9 @@ export function DashboardPage() {
       </div>
 
       <div className="card">
-        <h2>Upcoming this week ({today} – {week.end})</h2>
+        <h2>{t('upcoming_this_week', { start: today, end: week.end })}</h2>
         {weekVisits.length === 0 ? (
-          <p className="muted">No visits scheduled for this week.</p>
+          <p className="muted">{t('no_visits_this_week')}</p>
         ) : (
           <ul>
             {weekVisits.map((v) => {
@@ -112,7 +113,7 @@ export function DashboardPage() {
               return (
                 <li key={v.id}>
                   <Link to={`/visits/${v.id}`}>
-                    {v.visitDate} — {outlet?.name ?? 'Unknown'} ({v.salesRep})
+                    {v.visitDate} — {outlet?.name ?? t('unknown_outlet')} ({v.salesRep})
                   </Link>
                 </li>
               );
