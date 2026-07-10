@@ -200,6 +200,7 @@ describe('visitService.cancelPlannedForOutlet (A4 rework)', () => {
     const db = repository.getState();
     expect(db.visits).toHaveLength(1);
     expect(db.visits[0].status).toBe('cancelled');
+    expect(db.visits[0].cancelReason).toBe('Unscheduled from outlet form');
     expect(db.evidence).toHaveLength(1); // evidence preserved
   });
 
@@ -219,6 +220,7 @@ describe('visitService.cancelPlannedForOutlet (A4 rework)', () => {
     const db = repository.getState();
     expect(db.visits.find((v) => v.id === 'v-done')!.status).toBe('completed');
     expect(db.visits.find((v) => v.id === 'v-planned')!.status).toBe('cancelled');
+    expect(db.visits.find((v) => v.id === 'v-planned')!.cancelReason).toBe('Unscheduled from outlet form');
     expect(db.evidence).toHaveLength(2);
   });
 
@@ -264,6 +266,74 @@ describe('visitService.cancelPlannedForOutlet (A4 rework)', () => {
     await visitService.cancelPlannedForOutlet('o1');
     expect(repository.getState().visits[0].misaSyncStatus).toBe('Queued');
     expect(repository.getState().visits[0].status).toBe('cancelled');
+    vi.advanceTimersByTime(1500);
+    expect(['Synced', 'Failed']).toContain(repository.getState().visits[0].misaSyncStatus);
+  });
+});
+
+describe('visitService.cancelVisit', () => {
+  it('cancels a planned visit with reason + note, preserves evidence', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', status: 'planned', misaSyncStatus: 'Synced' })],
+      evidence: [makeEvidence({ id: 'e1', visitId: 'v1' })],
+    });
+    await visitService.cancelVisit('v1', 'No-show', 'Customer did not answer door');
+    const db = repository.getState();
+    expect(db.visits).toHaveLength(1);
+    expect(db.visits[0].status).toBe('cancelled');
+    expect(db.visits[0].cancelReason).toBe('No-show');
+    expect(db.visits[0].cancelNote).toBe('Customer did not answer door');
+    expect(db.evidence).toHaveLength(1);
+    expect(db.visits[0].misaSyncStatus).toBe('Queued');
+  });
+
+  it('cancels with reason Other and free-text note', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', status: 'planned' })],
+    });
+    await visitService.cancelVisit('v1', 'Other', 'Owner requested postponement via phone');
+    const db = repository.getState();
+    expect(db.visits[0].cancelReason).toBe('Other');
+    expect(db.visits[0].cancelNote).toBe('Owner requested postponement via phone');
+  });
+
+  it('cancels without optional note', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', status: 'planned' })],
+    });
+    await visitService.cancelVisit('v1', 'Customer postponed');
+    const db = repository.getState();
+    expect(db.visits[0].cancelReason).toBe('Customer postponed');
+    expect(db.visits[0].cancelNote).toBeUndefined();
+  });
+
+  it('throws VISIT_READ_ONLY for completed visits', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', status: 'completed' })],
+    });
+    await expect(visitService.cancelVisit('v1', 'No-show')).rejects.toThrow('VISIT_READ_ONLY');
+  });
+
+  it('throws VISIT_READ_ONLY for already cancelled visits', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', status: 'cancelled' })],
+    });
+    await expect(visitService.cancelVisit('v1', 'No-show')).rejects.toThrow('VISIT_READ_ONLY');
+  });
+
+  it('enqueues sync cancel and resolves after 1.5s', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', status: 'planned', misaSyncStatus: 'Synced' })],
+    });
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    await visitService.cancelVisit('v1', 'Customer postponed');
+    expect(repository.getState().visits[0].misaSyncStatus).toBe('Queued');
     vi.advanceTimersByTime(1500);
     expect(['Synced', 'Failed']).toContain(repository.getState().visits[0].misaSyncStatus);
   });

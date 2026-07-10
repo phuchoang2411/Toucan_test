@@ -1,6 +1,6 @@
 import { repository } from '../store/repository';
 import { syncService } from './syncService';
-import type { Evidence, EvidenceType, Stage, Visit } from '../domain/types';
+import type { CancelReason, Evidence, EvidenceType, Stage, Visit } from '../domain/types';
 
 export interface ScheduleVisitInput {
   outletId: string;
@@ -112,6 +112,27 @@ export const visitService = {
     return evidence;
   },
 
+  async cancelVisit(visitId: string, reason: CancelReason, note?: string): Promise<Visit> {
+    const visit = repository.getState().visits.find((v) => v.id === visitId);
+    if (!visit) throw new Error('VISIT_NOT_FOUND');
+    if (visit.status !== 'planned') throw new Error('VISIT_READ_ONLY');
+
+    const now = new Date().toISOString();
+    const cancelled: Visit = {
+      ...visit,
+      status: 'cancelled',
+      cancelReason: reason,
+      cancelNote: note,
+      updatedAt: now,
+    };
+    repository.setState((cur) => ({
+      ...cur,
+      visits: cur.visits.map((v) => (v.id === visit.id ? cancelled : v)),
+    }));
+    syncService.cancel(visit.id);
+    return { ...cancelled, misaSyncStatus: 'Queued' };
+  },
+
   async listEvidence(visitId: string): Promise<Evidence[]> {
     return repository.getState().evidence.filter((e) => e.visitId === visitId);
   },
@@ -166,7 +187,7 @@ export const visitService = {
       ...cur,
       visits: cur.visits.map((v) =>
         v.outletId === outletId && v.status === 'planned'
-          ? { ...v, status: 'cancelled' as const, updatedAt: now }
+          ? { ...v, status: 'cancelled' as const, cancelReason: 'Unscheduled from outlet form' as const, updatedAt: now }
           : v,
       ),
     }));
