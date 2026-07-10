@@ -170,6 +170,8 @@ StageHistory
 
 **BR6 — MISA sync isolation.** Business logic calls `syncService.enqueue(visitId)` only. See §6.
 
+**BR7 — Completion date mismatch gate.** Completing a visit on a calendar day other than its `visitDate` requires a justification note. Enforced in the service layer; the UI additionally shows an inline warning + required field when the mismatch is detected.
+
 ---
 
 ## 6. Architecture — MISA Mock Isolation
@@ -228,6 +230,10 @@ Consequence: replacing the repository with `fetch()` calls to a real Express/Mon
 **Per-visit reschedule & cancel (rep):**
 - Visit detail (`/visits/:id`) for planned visits: "Reschedule…" reveals an inline date picker with confirm/cancel; "Cancel visit…" reveals a reason `<select>` (Customer postponed, No-show, Planned by mistake, Other + free-text note) with a two-click confirm. Success → toast and stay on page.
 - Cancelled visit card shows reason and note. Schedule table shows cancel reason as muted text.
+
+**Per-visit completion date mismatch (rep, BR7):**
+- Visit detail "Complete visit" card: when `visitDate` differs from today, an inline warning appears with a required "Reason" note; blocked server-side (`DATE_MISMATCH_NOTE_REQUIRED`) if omitted.
+- The note is shown on the completed visit's Result card, and as a ⚠ tooltip next to the "Visit" link on any Stage history row it produced — so "When" (actual completion instant) and "Visit" (planned date) never look unexplained.
 
 **Dashboard drill-down (manager):**
 - Dashboard stage bars → `/outlets?stage=<stage>` with an active-filter chip and "Clear" button.

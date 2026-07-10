@@ -65,6 +65,8 @@ export interface Visit {
   resultNotes?: string;
   cancelReason?: CancelReason;
   cancelNote?: string;
+  /** Required whenever completion happens on a different calendar day than visitDate (BR7) */
+  dateMismatchNote?: string;
   misaSyncStatus: SyncStatus;
   createdAt: string;
   updatedAt: string;

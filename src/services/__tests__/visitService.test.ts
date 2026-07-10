@@ -5,6 +5,9 @@ import { MANAGER, makeEvidence, makeOutlet, makeVisit, resetDB, resetSession } f
 
 beforeEach(() => {
   vi.useFakeTimers();
+  // Pinned to match makeVisit()'s default visitDate so BR7's date-mismatch gate
+  // doesn't misfire based on whatever day the suite happens to run.
+  vi.setSystemTime(new Date('2026-07-10T12:00:00.000Z'));
   resetSession(); // defaults to Phúc (rep)
 });
 afterEach(() => {
@@ -189,6 +192,42 @@ describe('visitService.complete (BR3–BR5)', () => {
     resetDB({ outlets: [makeOutlet()], visits: [makeVisit({ status: 'completed' })] });
     await expect(visitService.complete({ visitId: 'v1', result: 'again' })).rejects.toThrow('VISIT_READ_ONLY');
     await expect(visitService.addEvidence('v1', { type: 'note', name: 'late note' })).rejects.toThrow('VISIT_READ_ONLY');
+  });
+});
+
+describe('visitService.complete — date mismatch gate (BR7)', () => {
+  it('completing on the scheduled day needs no note', async () => {
+    resetDB({ outlets: [makeOutlet()], visits: [makeVisit({ visitDate: '2026-07-10' })] });
+    const visit = await visitService.complete({ visitId: 'v1', result: 'On time' });
+    expect(visit.status).toBe('completed');
+    expect(visit.dateMismatchNote).toBeUndefined();
+  });
+
+  it('completing on a different day without a note is rejected', async () => {
+    resetDB({ outlets: [makeOutlet()], visits: [makeVisit({ visitDate: '2026-07-05' })] });
+    await expect(
+      visitService.complete({ visitId: 'v1', result: 'Late visit' }),
+    ).rejects.toThrow('DATE_MISMATCH_NOTE_REQUIRED');
+    expect(repository.getState().visits[0].status).toBe('planned');
+  });
+
+  it('completing on a different day with a note is accepted and the note is stored', async () => {
+    resetDB({ outlets: [makeOutlet()], visits: [makeVisit({ visitDate: '2026-07-05' })] });
+    const visit = await visitService.complete({
+      visitId: 'v1',
+      result: 'Late visit',
+      dateMismatchNote: 'Customer rescheduled on-site',
+    });
+    expect(visit.status).toBe('completed');
+    expect(visit.dateMismatchNote).toBe('Customer rescheduled on-site');
+    expect(repository.getState().visits[0].dateMismatchNote).toBe('Customer rescheduled on-site');
+  });
+
+  it('a whitespace-only note does not satisfy the gate', async () => {
+    resetDB({ outlets: [makeOutlet()], visits: [makeVisit({ visitDate: '2026-07-05' })] });
+    await expect(
+      visitService.complete({ visitId: 'v1', result: 'Late visit', dateMismatchNote: '   ' }),
+    ).rejects.toThrow('DATE_MISMATCH_NOTE_REQUIRED');
   });
 });
 

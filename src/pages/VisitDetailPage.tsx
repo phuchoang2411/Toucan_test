@@ -31,6 +31,7 @@ export function VisitDetailPage() {
 
   const [result, setResult] = useState('');
   const [resultNotes, setResultNotes] = useState('');
+  const [dateMismatchNote, setDateMismatchNote] = useState('');
   const [changeStage, setChangeStage] = useState(false);
   const [newStage, setNewStage] = useState<Stage>(visit?.targetStage ?? 'SQL');
   const [evType, setEvType] = useState<EvidenceType>('photo');
@@ -65,6 +66,7 @@ export function VisitDetailPage() {
 
   const readOnly = visit.status !== 'planned';
   const hasEvidence = evidence.length > 0;
+  const completingOnDifferentDay = visit.visitDate !== localISODate();
 
   async function addEvidence() {
     if (!evName.trim()) return;
@@ -90,6 +92,7 @@ export function VisitDetailPage() {
         result,
         resultNotes: resultNotes || undefined,
         newStage: changeStage ? newStage : null,
+        dateMismatchNote: dateMismatchNote.trim() || undefined,
       });
       fireToast('Visit completed');
       navigate('/schedule');
@@ -100,9 +103,11 @@ export function VisitDetailPage() {
           ? 'Stage change blocked: attach at least one piece of evidence first (BR3).'
           : message === 'RESULT_REQUIRED'
             ? 'Result is required to complete a visit.'
-            : message === 'FORBIDDEN'
-              ? 'You are not authorized to complete this visit.'
-              : message,
+            : message === 'DATE_MISMATCH_NOTE_REQUIRED'
+              ? 'This visit is being completed on a different day than scheduled — please explain why (BR7).'
+              : message === 'FORBIDDEN'
+                ? 'You are not authorized to complete this visit.'
+                : message,
       );
       setSaving(false);
     }
@@ -302,6 +307,9 @@ export function VisitDetailPage() {
             <>
               <p>{visit.result}</p>
               {visit.resultNotes && <p className="muted">{visit.resultNotes}</p>}
+              {visit.dateMismatchNote && (
+                <p className="warning-text">⚠ Completed on a different day than scheduled ({visit.visitDate}) — {visit.dateMismatchNote}</p>
+              )}
               <p className="muted">This visit is completed and read-only.</p>
             </>
           )}
@@ -342,6 +350,18 @@ export function VisitDetailPage() {
               )}
             </div>
           )}
+          {completingOnDifferentDay && (
+            <div className="field">
+              <p className="warning-text">⚠ This is being completed on a different day than scheduled ({visit.visitDate}) — why?</p>
+              <label htmlFor="visit-date-mismatch-note">Reason *</label>
+              <textarea
+                id="visit-date-mismatch-note"
+                rows={2}
+                value={dateMismatchNote}
+                onChange={(e) => setDateMismatchNote(e.target.value)}
+              />
+            </div>
+          )}
           {error && <p className="error-text">{error}</p>}
           <button className="btn btn-primary" style={{ marginTop: 12 }} type="button" onClick={save} disabled={saving} aria-busy={saving}>
             {saving ? 'Completing…' : 'Complete visit'}
@@ -366,7 +386,12 @@ export function VisitDetailPage() {
                     <td>{h.changedBy}</td>
                     <td>
                       {sourceVisit ? (
-                        <Link to={`/visits/${h.visitId}`}>{sourceVisit.visitDate}</Link>
+                        <>
+                          <Link to={`/visits/${h.visitId}`}>{sourceVisit.visitDate}</Link>
+                          {sourceVisit.dateMismatchNote && (
+                            <span className="warning-text" title={sourceVisit.dateMismatchNote} style={{ marginLeft: 4 }}>⚠</span>
+                          )}
+                        </>
                       ) : (
                         <span className="muted">—</span>
                       )}

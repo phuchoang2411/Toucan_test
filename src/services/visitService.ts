@@ -2,6 +2,7 @@ import { repository } from '../store/repository';
 import { session } from '../store/session';
 import { assertCanAccess, canAccess } from '../domain/authz';
 import { syncService } from './syncService';
+import { localISODate } from '../domain/dates';
 import type { CancelReason, Evidence, EvidenceType, Stage, Visit } from '../domain/types';
 
 export interface ScheduleVisitInput {
@@ -20,6 +21,8 @@ export interface CompleteVisitInput {
   resultNotes?: string;
   /** null/undefined = keep current stage (BR5) */
   newStage?: Stage | null;
+  /** Required whenever visitDate differs from the completion day (BR7) */
+  dateMismatchNote?: string;
 }
 
 export const visitService = {
@@ -183,8 +186,20 @@ export const visitService = {
       throw new Error('EVIDENCE_REQUIRED'); // BR3
     }
 
+    const dateMismatch = visit.visitDate !== localISODate();
+    if (dateMismatch && !input.dateMismatchNote?.trim()) {
+      throw new Error('DATE_MISMATCH_NOTE_REQUIRED'); // BR7
+    }
+
     const now = new Date().toISOString();
-    const completed: Visit = { ...visit, status: 'completed', result: input.result, resultNotes: input.resultNotes, updatedAt: now };
+    const completed: Visit = {
+      ...visit,
+      status: 'completed',
+      result: input.result,
+      resultNotes: input.resultNotes,
+      dateMismatchNote: dateMismatch ? input.dateMismatchNote!.trim() : undefined,
+      updatedAt: now,
+    };
 
     // BR4: completion + stage change + history append in one atomic state transition
     repository.setState((cur) => ({
