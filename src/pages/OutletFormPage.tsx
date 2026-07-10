@@ -196,7 +196,7 @@ export function OutletFormPage() {
             </div>
           )}
           {!schedule && existingPlan && (
-            <p className="warning-text">Saving with this unchecked cancels {existingPlans.length > 1 ? `${existingPlans.length} planned visits on ` : 'the planned visit on '}{existingPlans.map((p) => p.visitDate).join(', ')}. Completed visits are kept.</p>
+            <p className="warning-text">Saving with this unchecked cancels {existingPlans.length > 1 ? `${existingPlans.length} planned visits on ` : 'the planned visit on '}{existingPlans.map((p) => p.visitDate).join(', ')}. Completed and already-cancelled visits are kept as records.</p>
           )}
           {warnings.map((w) => <p key={w} className="warning-text">⚠ {w}</p>)}
         </div>

@@ -46,7 +46,7 @@ export function VisitDetailPage() {
       </section>
     );
 
-  const readOnly = visit.status === 'completed';
+  const readOnly = visit.status !== 'planned';
   const hasEvidence = evidence.length > 0;
 
   async function addEvidence() {
@@ -92,6 +92,7 @@ export function VisitDetailPage() {
     <section>
       <header className="page-header">
         <h1>Visit — {outlet.name}</h1>
+        <span className={`badge badge--${visit.status}`}>{visit.status}</span>
         <SyncBadge visit={visit} />
       </header>
 
@@ -142,10 +143,19 @@ export function VisitDetailPage() {
 
       {readOnly ? (
         <div className="card">
-          <h2>Result</h2>
-          <p>{visit.result}</p>
-          {visit.resultNotes && <p className="muted">{visit.resultNotes}</p>}
-          <p className="muted">This visit is completed and read-only.</p>
+          <h2>{visit.status === 'cancelled' ? 'Cancelled' : 'Result'}</h2>
+          {visit.status === 'cancelled' ? (
+            <>
+              <p className="muted">This visit was cancelled. Evidence is preserved.</p>
+              <p className="muted">A cancellation was sent to MISA.</p>
+            </>
+          ) : (
+            <>
+              <p>{visit.result}</p>
+              {visit.resultNotes && <p className="muted">{visit.resultNotes}</p>}
+              <p className="muted">This visit is completed and read-only.</p>
+            </>
+          )}
         </div>
       ) : (
         <div className="card">
