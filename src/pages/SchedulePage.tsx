@@ -6,6 +6,7 @@ import { StageBadge } from '../components/StageBadge';
 import { SyncBadge } from '../components/SyncBadge';
 import { isOverdue } from '../domain/visits';
 import { localISODate, localWeekRange } from '../domain/dates';
+import { t, VISIT_STATUS_LABELS } from '../strings';
 import type { KeyboardEvent } from 'react';
 
 export function SchedulePage() {
@@ -59,60 +60,60 @@ export function SchedulePage() {
   return (
     <section>
       <header className="page-header">
-        <h1>Working Schedule</h1>
+        <h1>{t('working_schedule_title')}</h1>
       </header>
 
       <div className="filters">
         {db.isManager && (
           <div className="field">
-            <label htmlFor="filter-rep">Rep</label>
+            <label htmlFor="filter-rep">{t('rep_filter_label')}</label>
             <select id="filter-rep" value={repFilter} onChange={(e) => setFilter('rep', e.target.value)}>
-              <option value="all">All reps</option>
+              <option value="all">{t('all_reps')}</option>
               {SALES_REPS.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
         )}
         <div className="field">
-          <label htmlFor="filter-status">Status</label>
+          <label htmlFor="filter-status">{t('status_filter_label')}</label>
           <select id="filter-status" value={statusFilter} onChange={(e) => setFilter('status', e.target.value)}>
-            <option value="all">All statuses</option>
-            <option value="planned">Planned</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="all">{t('all_statuses')}</option>
+            <option value="planned">{t('planned_option')}</option>
+            <option value="completed">{t('completed_option')}</option>
+            <option value="cancelled">{t('cancelled_option')}</option>
           </select>
         </div>
         <div className="field">
-          <label htmlFor="filter-when">When</label>
+          <label htmlFor="filter-when">{t('when_filter_label')}</label>
           <select id="filter-when" value={whenFilter} onChange={(e) => setFilter('when', e.target.value)}>
-            <option value="all">All dates</option>
-            <option value="today">Today</option>
-            <option value="week">This week</option>
-            <option value="overdue">Overdue</option>
+            <option value="all">{t('all_dates')}</option>
+            <option value="today">{t('today_option')}</option>
+            <option value="week">{t('this_week_option')}</option>
+            <option value="overdue">{t('overdue_option')}</option>
           </select>
         </div>
         {hasActiveFilters && (
           <button className="btn btn-secondary" onClick={() => setSearchParams({}, { replace: true })} style={{ alignSelf: 'flex-end' }}>
-            Clear filters
+            {t('clear_filters')}
           </button>
         )}
       </div>
 
       {filtered.length === 0 ? (
         <div className="empty-state">
-          <p>{hasActiveFilters ? 'No visits match the current filters.' : 'No visits scheduled yet. Create a visit from the outlet form.'}</p>
+          <p>{hasActiveFilters ? t('no_visits_filter') : t('no_visits_yet')}</p>
           {hasActiveFilters && (
             <button className="btn btn-secondary" onClick={() => setSearchParams({}, { replace: true })}>
-              Clear filters
+              {t('clear_filters')}
             </button>
           )}
         </div>
       ) : (
         <div className="table-wrap">
-          <table className="table table-clickable" aria-label="Working schedule, click a row or the outlet name to open a visit">
+          <table className="table table-clickable" aria-label={t('schedule_table_aria')}>
             <thead>
               <tr>
-                <th>Date</th><th>Rep</th><th>Outlet</th><th>Address</th>
-                <th>Stage (at planning)</th><th>Target</th><th>Objective</th><th>MISA</th><th>Status</th>
+                <th>{t('date_header')}</th><th>{t('rep_header')}</th><th>{t('outlet_header')}</th><th>{t('address_header')}</th>
+                <th>{t('stage_planning_header')}</th><th>{t('target_header')}</th><th>{t('objective_header')}</th><th>{t('misa_header')}</th><th>{t('status_header')}</th>
               </tr>
             </thead>
             <tbody>
@@ -134,12 +135,12 @@ export function SchedulePage() {
                     <td>{v.objective}</td>
                     <td><SyncBadge visit={v} /></td>
                     <td>
-                      <span className={`badge badge--${v.status}`}>{v.status}</span>
+                      <span className={`badge badge--${v.status}`}>{VISIT_STATUS_LABELS[v.status]?.vi ?? v.status}</span>
                       {v.status === 'cancelled' && v.cancelReason && (
                         <span className="muted" style={{ marginLeft: 4, fontSize: 11 }}>{v.cancelReason}</span>
                       )}
                       {isOverdue(v.status, v.visitDate, today) && (
-                        <span className="badge badge--overdue" style={{ marginLeft: 4 }}>overdue</span>
+                        <span className="badge badge--overdue" style={{ marginLeft: 4 }}>{t('overdue_badge')}</span>
                       )}
                     </td>
                   </tr>
