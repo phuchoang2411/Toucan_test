@@ -2,6 +2,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { STAGES, STAGE_LABELS } from '../domain/types';
 import { useScopedDB } from '../hooks/useScopedDB';
 import { StageBadge } from '../components/StageBadge';
+import { t } from '../strings';
 
 export function OutletListPage() {
   const { outlets } = useScopedDB();
@@ -22,31 +23,31 @@ export function OutletListPage() {
   return (
     <section>
       <header className="page-header">
-        <h1>C.A Outlets</h1>
-        <Link className="btn btn-primary" to="/outlets/new">+ New outlet</Link>
+        <h1>{t('outlets_title')}</h1>
+        <Link className="btn btn-primary" to="/outlets/new">{t('new_outlet')}</Link>
       </header>
 
       {stageFilter !== 'all' && (
         <div className="filters" style={{ marginBottom: 12 }}>
           <span className="badge badge--active-filter">
-            Stage: {STAGE_LABELS[stageFilter as typeof STAGES[number]]}
-            <button className="btn-clear-chip" onClick={clearStageFilter} aria-label="Clear stage filter">&times;</button>
+            {t('stage_filter_chip', { label: STAGE_LABELS[stageFilter as typeof STAGES[number]] })}
+            <button className="btn-clear-chip" onClick={clearStageFilter} aria-label={t('clear_stage_filter_aria')}>&times;</button>
           </span>
         </div>
       )}
 
       {sorted.length === 0 ? (
         <div className="empty-state">
-          <p>{stageFilter !== 'all' ? 'No outlets match this stage filter.' : 'No outlets yet. Add your first outlet to get started.'}</p>
+          <p>{stageFilter !== 'all' ? t('no_outlets_stage_filter') : t('no_outlets_yet')}</p>
           {stageFilter !== 'all' && (
-            <button className="btn btn-secondary" onClick={clearStageFilter}>Clear filter</button>
+            <button className="btn btn-secondary" onClick={clearStageFilter}>{t('clear_filter')}</button>
           )}
         </div>
       ) : (
         <div className="table-wrap">
           <table className="table">
             <thead>
-              <tr><th>Name</th><th>Channel</th><th>Tier</th><th>Sales rep</th><th>Stage</th></tr>
+              <tr><th>{t('name_header')}</th><th>{t('channel_header')}</th><th>{t('tier_header')}</th><th>{t('sales_rep_header')}</th><th>{t('stage_header')}</th></tr>
             </thead>
             <tbody>
               {sorted.map((o) => (
