@@ -4,6 +4,7 @@ import { CHANNELS, SALES_REPS, STAGES, STAGE_LABELS, TIERS } from '../domain/typ
 import { localISODate } from '../domain/dates';
 import type { Channel, Stage, Tier } from '../domain/types';
 import { StageBadge } from '../components/StageBadge';
+import { t } from '../strings';
 import { useDB } from '../hooks/useDB';
 import { useSession } from '../hooks/useSession';
 import { canAccess } from '../domain/authz';
@@ -59,11 +60,11 @@ export function OutletFormPage() {
     return (
       <section>
         <header className="page-header">
-          <h1>Outlet not found</h1>
+          <h1>{t('outlet_not_found')}</h1>
         </header>
         <div className="empty-state">
-          <p>No outlet with ID "{id}" exists.</p>
-          <Link className="btn btn-primary" to="/outlets">Back to Outlets</Link>
+          <p>{t('no_outlet_with_id', { id })}</p>
+          <Link className="btn btn-primary" to="/outlets">{t('back_to_outlets')}</Link>
         </div>
       </section>
     );
@@ -74,23 +75,21 @@ export function OutletFormPage() {
   const today = localISODate();
   const warnings: string[] = [];
   if (schedule && visitDate && visitDate < today)
-    warnings.push('Visit date is in the past — allowed for after-the-fact logging, but double-check it.');
+    warnings.push(t('visit_date_past_warning'));
   if (schedule && targetStage === form.currentStage)
-    warnings.push('Target stage equals the current stage — this visit plans no progression.');
+    warnings.push(t('target_stage_no_progression'));
   if (schedule && existingPlan && visitDate && visitDate !== existingPlan.visitDate)
-    warnings.push(`This reschedules the planned visit from ${existingPlan.visitDate} to ${visitDate}.`);
+    warnings.push(t('reschedule_planned_visit', { from: existingPlan.visitDate, to: visitDate }));
   if (schedule && existingPlans.length > 1)
-    warnings.push(
-      `This outlet has ${existingPlans.length} planned visits (${existingPlans.map((p) => p.visitDate).join(', ')}). This form edits the earliest one (${existingPlan.visitDate}); the others are untouched.`,
-    );
+    warnings.push(t('multiple_planned_visits', { count: existingPlans.length, dates: existingPlans.map((p) => p.visitDate).join(', '), date: existingPlan.visitDate }));
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const errs: Record<string, string> = {};
-    if (!form.name.trim()) errs.name = 'Name is required';
-    if (!form.address.trim()) errs.address = 'Address is required';
-    if (schedule && !visitDate) errs.visitDate = 'Visit date is required';
-    if (schedule && !objective.trim()) errs.objective = 'Visit objective is required';
+    if (!form.name.trim()) errs.name = t('name_required');
+    if (!form.address.trim()) errs.address = t('address_required');
+    if (schedule && !visitDate) errs.visitDate = t('visit_date_required');
+    if (schedule && !objective.trim()) errs.objective = t('objective_required');
     setErrors(errs);
     if (Object.keys(errs).length > 0) return;
 
@@ -100,19 +99,19 @@ export function OutletFormPage() {
         { id: editing?.id, ...form, notes: form.notes || undefined },
         schedule ? { visitDate, targetStage, objective, existingVisitId: existingPlan?.id } : null,
       );
-      fireToast(editing ? 'Outlet updated' : 'Outlet created');
+      fireToast(t(editing ? 'outlet_updated' : 'outlet_created'));
       navigate(schedule ? '/schedule' : '/outlets');
     } catch (e) {
       setSaving(false);
       const code = e instanceof Error ? e.message : String(e);
       fireToast(
         code === 'DATE_ALREADY_PLANNED'
-          ? 'This outlet already has a different planned visit on that date — pick another date.'
+          ? t('date_already_planned')
           : code === 'OUTLET_NOT_FOUND'
-            ? 'This outlet no longer exists — it may have been deleted elsewhere.'
+            ? t('outlet_no_longer_exists')
             : code === 'FORBIDDEN' || code === 'FORBIDDEN_REASSIGN'
-              ? 'You are not authorized to make this change.'
-              : 'Failed to save outlet',
+              ? t('not_authorized_change')
+              : t('failed_to_save_outlet'),
         'error',
       );
     }
@@ -121,29 +120,29 @@ export function OutletFormPage() {
   return (
     <section>
       <header className="page-header">
-        <h1>{editing ? `Edit — ${editing.name}` : 'New outlet'}</h1>
+        <h1>{editing ? t('edit_outlet_title', { name: editing.name }) : t('new_outlet_title')}</h1>
       </header>
       <form onSubmit={onSubmit} noValidate ref={formRef}>
         <div className="card">
           <div className="field" data-field="name">
-            <label htmlFor="outlet-name">Name *</label>
+            <label htmlFor="outlet-name">{t('name_label')}</label>
             <input id="outlet-name" value={form.name} onChange={set('name')} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'outlet-name-error' : undefined} />
             {errors.name && <span className="error-text" id="outlet-name-error" role="alert">{errors.name}</span>}
           </div>
           <div className="field" data-field="address">
-            <label htmlFor="outlet-address">Address *</label>
+            <label htmlFor="outlet-address">{t('address_label')}</label>
             <input id="outlet-address" value={form.address} onChange={set('address')} aria-invalid={!!errors.address} aria-describedby={errors.address ? 'outlet-address-error' : undefined} />
             {errors.address && <span className="error-text" id="outlet-address-error" role="alert">{errors.address}</span>}
           </div>
           <div className="field-row">
             <div className="field">
-              <label htmlFor="outlet-channel">Channel *</label>
+              <label htmlFor="outlet-channel">{t('channel_label')}</label>
               <select id="outlet-channel" value={form.channel} onChange={set('channel')}>
                 {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="field">
-              <label htmlFor="outlet-tier">Tier *</label>
+              <label htmlFor="outlet-tier">{t('tier_label')}</label>
               <select id="outlet-tier" value={form.tier} onChange={set('tier')}>
                 {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
@@ -151,7 +150,7 @@ export function OutletFormPage() {
           </div>
           <div className="field-row">
             <div className="field">
-              <label htmlFor="outlet-sales-rep">Sales rep *</label>
+              <label htmlFor="outlet-sales-rep">{t('sales_rep_label')}</label>
               {isManager ? (
                 <select id="outlet-sales-rep" value={form.salesRep} onChange={set('salesRep')}>
                   {SALES_REPS.map((r) => <option key={r} value={r}>{r}</option>)}
@@ -159,16 +158,16 @@ export function OutletFormPage() {
               ) : (
                 <>
                   <input id="outlet-sales-rep" value={form.salesRep} disabled readOnly />
-                  <span className="muted">Only a manager can reassign an outlet to another rep</span>
+                  <span className="muted">{t('manager_reassign_only')}</span>
                 </>
               )}
             </div>
             <div className="field">
-              <label htmlFor="outlet-current-stage">Current stage</label>
+              <label htmlFor="outlet-current-stage">{t('current_stage_label')}</label>
               {editing ? (
                 <>
                   <StageBadge stage={editing.currentStage} />
-                  <span className="muted">Change stage by completing a visit</span>
+                  <span className="muted">{t('change_stage_via_visit')}</span>
                 </>
               ) : (
                 <select id="outlet-current-stage" value={form.currentStage} onChange={set('currentStage')}>
@@ -178,7 +177,7 @@ export function OutletFormPage() {
             </div>
           </div>
           <div className="field">
-            <label htmlFor="outlet-notes">Notes / next step</label>
+            <label htmlFor="outlet-notes">{t('notes_next_step')}</label>
             <textarea id="outlet-notes" rows={2} value={form.notes} onChange={set('notes')} />
           </div>
         </div>
@@ -192,32 +191,36 @@ export function OutletFormPage() {
             <div className="field-group--conditional">
               <div className="field-row">
                 <div className="field" data-field="visitDate">
-                  <label htmlFor="visit-date">Visit date *</label>
+                  <label htmlFor="visit-date">{t('visit_date_label')}</label>
                   <input id="visit-date" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} aria-invalid={!!errors.visitDate} aria-describedby={errors.visitDate ? 'visit-date-error' : undefined} />
                   {errors.visitDate && <span className="error-text" id="visit-date-error" role="alert">{errors.visitDate}</span>}
                 </div>
                 <div className="field">
-                  <label htmlFor="target-stage">Target stage *</label>
+                  <label htmlFor="target-stage">{t('target_stage_label')}</label>
                   <select id="target-stage" value={targetStage} onChange={(e) => setTargetStage(e.target.value as Stage)}>
                     {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
                   </select>
                 </div>
               </div>
               <div className="field" data-field="objective">
-                <label htmlFor="visit-objective">Visit objective *</label>
+                <label htmlFor="visit-objective">{t('visit_objective_label')}</label>
                 <input id="visit-objective" value={objective} onChange={(e) => setObjective(e.target.value)} aria-invalid={!!errors.objective} aria-describedby={errors.objective ? 'visit-objective-error' : undefined} />
                 {errors.objective && <span className="error-text" id="visit-objective-error" role="alert">{errors.objective}</span>}
               </div>
             </div>
           )}
           {!schedule && existingPlan && (
-            <p className="warning-text">Saving with this unchecked cancels {existingPlans.length > 1 ? `${existingPlans.length} planned visits on ` : 'the planned visit on '}{existingPlans.map((p) => p.visitDate).join(', ')}. Completed and already-cancelled visits are kept as records.</p>
+            <p className="warning-text">
+              {existingPlans.length > 1
+                ? t('unschedule_warning', { count: existingPlans.length, dates: existingPlans.map((p) => p.visitDate).join(', ') })
+                : t('unschedule_warning_single', { dates: existingPlan.visitDate })}
+            </p>
           )}
           {warnings.map((w) => <p key={w} className="warning-text">⚠ {w}</p>)}
         </div>
 
         <button className="btn btn-primary" type="submit" aria-busy={saving} disabled={saving}>
-          {saving ? 'Saving…' : 'Save outlet'}
+          {saving ? t('saving') : t('save_outlet')}
         </button>
       </form>
     </section>
