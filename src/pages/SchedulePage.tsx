@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useDB } from '../hooks/useDB';
 import { SALES_REPS } from '../domain/types';
 import { StageBadge } from '../components/StageBadge';
@@ -13,9 +13,22 @@ export function SchedulePage() {
   const navigate = useNavigate();
   const outletById = new Map(db.outlets.map((o) => [o.id, o]));
 
-  const [repFilter, setRepFilter] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [whenFilter, setWhenFilter] = useState<string>('all');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawRep = searchParams.get('rep');
+  const rawStatus = searchParams.get('status');
+  const rawWhen = searchParams.get('when');
+  const repFilter = rawRep && SALES_REPS.includes(rawRep as typeof SALES_REPS[number]) ? rawRep : 'all';
+  const statusFilter = rawStatus && ['planned', 'completed', 'cancelled'].includes(rawStatus) ? rawStatus : 'all';
+  const whenFilter = rawWhen && ['today', 'week', 'overdue'].includes(rawWhen) ? rawWhen : 'all';
+
+  function setFilter(key: string, value: string) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value === 'all') next.delete(key);
+      else next.set(key, value);
+      return next;
+    }, { replace: true });
+  }
 
   const today = localISODate();
   const week = localWeekRange();
@@ -52,14 +65,14 @@ export function SchedulePage() {
       <div className="filters">
         <div className="field">
           <label htmlFor="filter-rep">Rep</label>
-          <select id="filter-rep" value={repFilter} onChange={(e) => setRepFilter(e.target.value)}>
+          <select id="filter-rep" value={repFilter} onChange={(e) => setFilter('rep', e.target.value)}>
             <option value="all">All reps</option>
             {SALES_REPS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
         </div>
         <div className="field">
           <label htmlFor="filter-status">Status</label>
-          <select id="filter-status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <select id="filter-status" value={statusFilter} onChange={(e) => setFilter('status', e.target.value)}>
             <option value="all">All statuses</option>
             <option value="planned">Planned</option>
             <option value="completed">Completed</option>
@@ -68,7 +81,7 @@ export function SchedulePage() {
         </div>
         <div className="field">
           <label htmlFor="filter-when">When</label>
-          <select id="filter-when" value={whenFilter} onChange={(e) => setWhenFilter(e.target.value)}>
+          <select id="filter-when" value={whenFilter} onChange={(e) => setFilter('when', e.target.value)}>
             <option value="all">All dates</option>
             <option value="today">Today</option>
             <option value="week">This week</option>
@@ -76,7 +89,7 @@ export function SchedulePage() {
           </select>
         </div>
         {hasActiveFilters && (
-          <button className="btn btn-secondary" onClick={() => { setRepFilter('all'); setStatusFilter('all'); setWhenFilter('all'); }} style={{ alignSelf: 'flex-end' }}>
+          <button className="btn btn-secondary" onClick={() => setSearchParams({}, { replace: true })} style={{ alignSelf: 'flex-end' }}>
             Clear filters
           </button>
         )}
@@ -86,7 +99,7 @@ export function SchedulePage() {
         <div className="empty-state">
           <p>{hasActiveFilters ? 'No visits match the current filters.' : 'No visits scheduled yet. Create a visit from the outlet form.'}</p>
           {hasActiveFilters && (
-            <button className="btn btn-secondary" onClick={() => { setRepFilter('all'); setStatusFilter('all'); setWhenFilter('all'); }}>
+            <button className="btn btn-secondary" onClick={() => setSearchParams({}, { replace: true })}>
               Clear filters
             </button>
           )}
@@ -120,6 +133,9 @@ export function SchedulePage() {
                     <td><SyncBadge visit={v} /></td>
                     <td>
                       <span className={`badge badge--${v.status}`}>{v.status}</span>
+                      {v.status === 'cancelled' && v.cancelReason && (
+                        <span className="muted" style={{ marginLeft: 4, fontSize: 11 }}>{v.cancelReason}</span>
+                      )}
                       {isOverdue(v.status, v.visitDate, today) && (
                         <span className="badge badge--overdue" style={{ marginLeft: 4 }}>overdue</span>
                       )}
