@@ -189,7 +189,9 @@ export const visitService = {
     return repository.getState().evidence.filter((e) => e.visitId === visitId);
   },
 
-  /** BR3–BR5: complete a visit; optional stage transition gated on ≥1 evidence. */
+  /** BR3–BR5: complete a visit; optional stage transition gated on ≥1 evidence.
+   *  BR4: every completion appends a StageHistory row, even when the stage is held
+   *  (fromStage === toStage) — the log is a full audit of stage decisions, not just changes. */
   async complete(input: CompleteVisitInput): Promise<Visit> {
     const user = session.getState();
     const db = repository.getState();
@@ -222,6 +224,8 @@ export const visitService = {
       updatedAt: now,
     };
 
+    const toStage = input.newStage ?? outlet.currentStage;
+
     // BR4: completion + stage change + history append in one atomic state transition
     repository.setState((cur) => ({
       ...cur,
@@ -229,12 +233,10 @@ export const visitService = {
       outlets: transitioning
         ? cur.outlets.map((o) => (o.id === outlet.id ? { ...o, currentStage: input.newStage!, updatedAt: now } : o))
         : cur.outlets,
-      stageHistory: transitioning
-        ? [
-            ...cur.stageHistory,
-            { id: crypto.randomUUID(), outletId: outlet.id, visitId: visit.id, fromStage: outlet.currentStage, toStage: input.newStage!, changedBy: user.name, changedAt: now },
-          ]
-        : cur.stageHistory,
+      stageHistory: [
+        ...cur.stageHistory,
+        { id: crypto.randomUUID(), outletId: outlet.id, visitId: visit.id, fromStage: outlet.currentStage, toStage, changedBy: user.name, changedAt: now },
+      ],
     }));
 
     syncService.enqueue(visit.id);

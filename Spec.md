@@ -53,7 +53,7 @@ The requirements intentionally leave gaps. These are the decisions I made, with 
 ### A2. Stage transitions are free-form but fully logged
 The requirements define no transition rules (e.g., "can't skip stages").
 
-**Assumption:** any stage → any stage is allowed, including backward moves and `Lost` from anywhere. Real sales is messy — a customer can ask for a proposal while still sampling, or a Won account can churn. Instead of restricting transitions, every change is logged in `StageHistory` with the triggering visit, so managers get auditability without the tool fighting reality.
+**Assumption:** any stage → any stage is allowed, including backward moves and `Lost` from anywhere. Real sales is messy — a customer can ask for a proposal while still sampling, or a Won account can churn. Instead of restricting transitions, every completed visit is logged in `StageHistory` with the triggering visit — including visits where the stage was held rather than changed (`fromStage === toStage`, BR4) — so managers get a full audit trail of stage decisions, not just of changes, without the tool fighting reality.
 
 ### A3. Actual new stage may differ from target stage
 Target stage is captured at scheduling time as an *expectation*. When completing a visit, the rep chooses the actual new stage freely (defaulted to the target stage in the UI). The visit outcome, not the plan, decides.
@@ -147,9 +147,9 @@ Evidence
 StageHistory
   id          string (uuid)
   outletId    fk → Outlet
-  visitId     fk → Visit      -- the visit that justified this transition
+  visitId     fk → Visit      -- the visit that produced this record
   fromStage   enum
-  toStage     enum
+  toStage     enum            -- equals fromStage when the visit completed with the stage held (BR4)
   changedBy   string (sales rep)
   changedAt   datetime
 ```
@@ -164,9 +164,9 @@ StageHistory
 
 **BR3 — Evidence gate.** A stage change on visit completion is rejected unless the visit has ≥1 evidence. Enforced in the service layer; the UI additionally disables the stage-change controls and explains why.
 
-**BR4 — Stage history.** Every accepted transition appends one immutable StageHistory record and updates `Outlet.currentStage` atomically (same service call).
+**BR4 — Stage history.** Every completed visit appends one immutable StageHistory record — `fromStage` may equal `toStage` when the rep kept the current stage or never opened the stage-change control — so the log is a full audit of stage decisions, not just changes. `Outlet.currentStage` updates atomically in the same service call, but only when the stage actually changes.
 
-**BR5 — Completing without transition is fine.** A rep can record result + notes + evidence and keep the current stage. Evidence is only *required* when changing stage.
+**BR5 — Completing without transition is fine.** A rep can record result + notes + evidence and keep the current stage. Evidence is only *required* when changing stage. A StageHistory row (`fromStage === toStage`) is still recorded even though nothing changed.
 
 **BR6 — MISA sync isolation.** Business logic calls `syncService.enqueue(visitId)` only. See §6.
 
@@ -215,9 +215,9 @@ Consequence: replacing the repository with `fetch()` calls to a real Express/Mon
 ## 8. Screens
 
 1. **Outlet list** — table of outlets (name, channel, tier, rep, stage badge), + "New outlet".
-2. **Outlet form (create/edit)** — all fields from §4; "Schedule a visit?" checkbox conditionally reveals visit date, target stage, visit objective. Inline validation errors on save.
-3. **Working Schedule** — table: date, rep, outlet, address, current stage (snapshot), target stage, objective, MISA sync badge, status. Row click → visit detail. **Filters** toolbar: rep dropdown, status dropdown (planned/completed/cancelled), date preset (all/today/this week/overdue). Clear filters button.
-4. **Visit detail** — record result + notes, add mock evidence (type + name), toggle "change stage", pick new stage (default = target). Save enforces the evidence gate. Shows outlet's stage history at the bottom.
+2. **Outlet form (create/edit)** — all fields from §4; "Schedule a visit?" checkbox conditionally reveals visit date, target stage, visit objective. Inline validation errors on save. On edit, a **Schedule History** card below the form lists every visit for this outlet (planned, completed, and cancelled), newest first — link to visit detail, stage-at-planning/target badges, MISA sync badge, status (with cancel reason and overdue badge where relevant).
+3. **Working Schedule** — table: date, rep, outlet, address, current stage (snapshot), target stage, objective, MISA sync badge, status. Row click → visit detail. An **"Add schedule"** button opens a dialog (outlet picker + visit date/target stage/objective) to create a schedule directly from this screen, instead of only via the outlet form — the sales rep is always the selected outlet's rep, same as scheduling from the outlet form. **Filters** toolbar: rep dropdown, status dropdown (planned/completed/cancelled), date preset (all/today/this week/overdue). Clear filters button.
+4. **Visit detail** — record result + notes, add mock evidence (type + name), toggle "change stage", pick new stage (default = target). Save enforces the evidence gate. Shows outlet's stage history at the bottom, including held-stage rows (BR4) where `fromStage === toStage`.
 5. **Dashboard** (`/dashboard`) — horizontal bar chart of outlets per stage, per-rep table (outlets/planned/overdue/completed), upcoming this week visit list.
 
 **Validation summary:**
@@ -260,8 +260,9 @@ Plus one pre-seeded planned visit, one completed visit with evidence, and one ca
 1. Upsert: same (rep, outlet, date) with planned visit → updates, count unchanged, sync reset to Queued.
 2. Upsert: same key but visit completed → creates a second visit.
 3. Evidence gate: stage change with 0 evidence → rejected; with 1 evidence → accepted, StageHistory row appended, outlet stage updated.
-4. Completing a visit without stage change and without evidence → allowed.
+4. Completing a visit without stage change and without evidence → allowed; still appends a held-stage StageHistory row (`fromStage === toStage`, BR4).
 5. Unchecking "schedule a visit": planned visits cancelled (status set to `cancelled`, evidence preserved); completed visits untouched.
+6. `getScheduleWarnings` (domain/visits): past date, no-progression, reschedule-collision, and multiple-planned-visits warnings, in isolation from any page.
 
 **Manual demo script:**
 1. Create outlet with visit → row appears in schedule, sync goes Queued → Synced/Failed.
@@ -270,7 +271,9 @@ Plus one pre-seeded planned visit, one completed visit with evidence, and one ca
 4. Add evidence → change stage → outlet stage updated, history entry visible.
 5. Retry a Failed sync.
 6. **Schedule filters** — filter by rep, status, date preset (today/week/overdue); clear button restores full list.
-7. **Dashboard** (`/dashboard`) — view per-stage bar chart, per-rep breakdown table, upcoming week visit list.
+7. **Add schedule from Working Schedule tab** — open the dialog, pick an outlet, fill in the fields, save → new row appears without leaving `/schedule`.
+8. **Outlet Schedule History** — open an outlet's edit page and confirm all of its visits (planned/completed/cancelled) are listed.
+9. **Dashboard** (`/dashboard`) — view per-stage bar chart, per-rep breakdown table, upcoming week visit list.
 
 ---
 

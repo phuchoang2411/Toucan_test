@@ -53,7 +53,7 @@ Yêu cầu đề bài cố tình để lại một số khoảng trống. Đây 
 ### A2. Chuyển giai đoạn tự do nhưng được ghi log đầy đủ
 Yêu cầu đề bài không định nghĩa quy tắc chuyển giai đoạn (ví dụ: "không được bỏ qua giai đoạn").
 
-**Giả định:** cho phép chuyển từ bất kỳ giai đoạn nào sang bất kỳ giai đoạn nào, kể cả lùi lại và chuyển sang `Lost` từ bất cứ đâu. Thực tế bán hàng vốn rối rắm — khách hàng có thể yêu cầu báo giá ngay khi đang trong giai đoạn dùng thử, hoặc một tài khoản Won có thể rời bỏ (churn). Thay vì giới hạn việc chuyển giai đoạn, mọi thay đổi đều được ghi vào `StageHistory` kèm buổi ghé thăm kích hoạt, giúp quản lý có khả năng kiểm toán mà không khiến công cụ "chống lại" thực tế.
+**Giả định:** cho phép chuyển từ bất kỳ giai đoạn nào sang bất kỳ giai đoạn nào, kể cả lùi lại và chuyển sang `Lost` từ bất cứ đâu. Thực tế bán hàng vốn rối rắm — khách hàng có thể yêu cầu báo giá ngay khi đang trong giai đoạn dùng thử, hoặc một tài khoản Won có thể rời bỏ (churn). Thay vì giới hạn việc chuyển giai đoạn, mọi buổi ghé thăm đã hoàn tất đều được ghi vào `StageHistory` kèm buổi ghé thăm kích hoạt — kể cả khi giai đoạn được giữ nguyên thay vì thay đổi (`fromStage === toStage`, BR4) — giúp quản lý có một dấu vết kiểm toán đầy đủ cho mọi quyết định về giai đoạn, không chỉ các thay đổi, mà không khiến công cụ "chống lại" thực tế.
 
 ### A3. Giai đoạn mới thực tế có thể khác giai đoạn mục tiêu
 Target stage được ghi nhận tại thời điểm lên lịch như một *kỳ vọng*. Khi hoàn tất buổi ghé thăm, rep tự do chọn giai đoạn mới thực tế (mặc định là target stage trên UI). Kết quả thực tế của buổi ghé thăm, chứ không phải kế hoạch, mới là yếu tố quyết định.
@@ -147,9 +147,9 @@ Evidence
 StageHistory
   id          string (uuid)
   outletId    fk → Outlet
-  visitId     fk → Visit      -- buổi ghé thăm làm căn cứ cho lần chuyển giai đoạn này
+  visitId     fk → Visit      -- buổi ghé thăm tạo ra bản ghi này
   fromStage   enum
-  toStage     enum
+  toStage     enum            -- bằng fromStage khi buổi ghé thăm hoàn tất mà giữ nguyên giai đoạn (BR4)
   changedBy   string (sales rep)
   changedAt   datetime
 ```
@@ -164,9 +164,9 @@ StageHistory
 
 **BR3 — Cổng bằng chứng (Evidence gate).** Việc đổi giai đoạn khi hoàn tất buổi ghé thăm sẽ bị từ chối trừ khi buổi ghé thăm có ≥1 evidence. Được thực thi ở tầng service; UI còn vô hiệu hóa thêm các điều khiển đổi giai đoạn và giải thích lý do.
 
-**BR4 — Lịch sử giai đoạn.** Mỗi lần chuyển giai đoạn được chấp nhận sẽ thêm một bản ghi StageHistory bất biến và cập nhật `Outlet.currentStage` một cách nguyên tử (cùng một lệnh gọi service).
+**BR4 — Lịch sử giai đoạn.** Mỗi buổi ghé thăm hoàn tất sẽ thêm một bản ghi StageHistory bất biến — `fromStage` có thể bằng `toStage` khi rep giữ nguyên giai đoạn hiện tại hoặc chưa từng mở điều khiển đổi giai đoạn — vì vậy đây là một nhật ký kiểm toán đầy đủ cho các quyết định về giai đoạn, không chỉ các thay đổi. `Outlet.currentStage` được cập nhật nguyên tử trong cùng lệnh gọi service, nhưng chỉ khi giai đoạn thực sự thay đổi.
 
-**BR5 — Hoàn tất mà không chuyển giai đoạn là hợp lệ.** Rep có thể ghi nhận kết quả + ghi chú + evidence mà vẫn giữ nguyên giai đoạn hiện tại. Evidence chỉ *bắt buộc* khi đổi giai đoạn.
+**BR5 — Hoàn tất mà không chuyển giai đoạn là hợp lệ.** Rep có thể ghi nhận kết quả + ghi chú + evidence mà vẫn giữ nguyên giai đoạn hiện tại. Evidence chỉ *bắt buộc* khi đổi giai đoạn. Một dòng StageHistory (`fromStage === toStage`) vẫn được ghi nhận dù không có gì thay đổi.
 
 **BR6 — Cô lập đồng bộ MISA.** Logic nghiệp vụ chỉ gọi `syncService.enqueue(visitId)`. Xem §6.
 
@@ -213,9 +213,9 @@ Hệ quả: việc thay thế repository bằng các lệnh gọi `fetch()` tớ
 ## 8. Màn hình (Screens)
 
 1. **Danh sách outlet** — bảng liệt kê outlet (tên, kênh, tier, rep, badge giai đoạn), + "Outlet mới".
-2. **Form outlet (tạo/sửa)** — tất cả các trường ở §4; checkbox "Lên lịch ghé thăm?" hiển thị có điều kiện ngày ghé thăm, target stage, mục tiêu buổi ghé thăm. Lỗi validation hiển thị inline khi lưu.
-3. **Lịch Làm Việc** — bảng: ngày, rep, outlet, địa chỉ, giai đoạn hiện tại (snapshot), target stage, mục tiêu, badge đồng bộ MISA, trạng thái. Nhấp vào dòng → chi tiết buổi ghé thăm. **Bộ lọc (Filters)**: dropdown rep, dropdown trạng thái (planned/completed/cancelled), bộ lọc ngày (all/today/this week/overdue). Nút xóa bộ lọc (Clear filters).
-4. **Chi tiết buổi ghé thăm** — ghi nhận kết quả + ghi chú, thêm evidence mock (loại + tên), bật/tắt "đổi giai đoạn", chọn giai đoạn mới (mặc định = target). Lưu sẽ thực thi cổng bằng chứng (evidence gate). Hiển thị lịch sử giai đoạn của outlet ở phía dưới.
+2. **Form outlet (tạo/sửa)** — tất cả các trường ở §4; checkbox "Lên lịch ghé thăm?" hiển thị có điều kiện ngày ghé thăm, target stage, mục tiêu buổi ghé thăm. Lỗi validation hiển thị inline khi lưu. Khi sửa, một thẻ **Lịch sử ghé thăm** bên dưới form liệt kê mọi buổi ghé thăm của outlet này (planned, completed, và cancelled), mới nhất trước — link đến chi tiết buổi ghé thăm, badge giai đoạn-lúc-lên-kế-hoạch/target, badge đồng bộ MISA, trạng thái (kèm lý do hủy và badge quá hạn khi có).
+3. **Lịch Làm Việc** — bảng: ngày, rep, outlet, địa chỉ, giai đoạn hiện tại (snapshot), target stage, mục tiêu, badge đồng bộ MISA, trạng thái. Nhấp vào dòng → chi tiết buổi ghé thăm. Nút **"Thêm lịch ghé thăm"** mở một hộp thoại (chọn outlet + ngày ghé thăm/target stage/mục tiêu) để tạo lịch trực tiếp từ màn hình này, thay vì chỉ qua form outlet — sales rep luôn là rep của outlet được chọn, giống như khi lên lịch từ form outlet. **Bộ lọc (Filters)**: dropdown rep, dropdown trạng thái (planned/completed/cancelled), bộ lọc ngày (all/today/this week/overdue). Nút xóa bộ lọc (Clear filters).
+4. **Chi tiết buổi ghé thăm** — ghi nhận kết quả + ghi chú, thêm evidence mock (loại + tên), bật/tắt "đổi giai đoạn", chọn giai đoạn mới (mặc định = target). Lưu sẽ thực thi cổng bằng chứng (evidence gate). Hiển thị lịch sử giai đoạn của outlet ở phía dưới, bao gồm cả các dòng giữ nguyên giai đoạn (BR4) nơi `fromStage === toStage`.
 5. **Dashboard** (`/dashboard`) — biểu đồ thanh ngang (horizontal bar chart) số outlet theo giai đoạn, bảng phân tích theo từng rep (outlets/planned/overdue/completed), danh sách buổi ghé thăm sắp diễn ra trong tuần.
 
 **Tóm tắt validation:**
@@ -254,8 +254,9 @@ Kèm theo một buổi ghé thăm planned, một buổi ghé thăm completed kè
 1. Upsert: cùng (rep, outlet, date) với buổi ghé thăm planned → cập nhật, số lượng không đổi, sync reset về Queued.
 2. Upsert: cùng khóa nhưng buổi ghé thăm đã completed → tạo buổi ghé thăm thứ hai.
 3. Cổng bằng chứng: đổi giai đoạn với 0 evidence → bị từ chối; với 1 evidence → được chấp nhận, thêm dòng StageHistory, cập nhật giai đoạn outlet.
-4. Hoàn tất buổi ghé thăm không đổi giai đoạn và không có evidence → được cho phép.
+4. Hoàn tất buổi ghé thăm không đổi giai đoạn và không có evidence → được cho phép; vẫn thêm một dòng StageHistory giữ nguyên giai đoạn (`fromStage === toStage`, BR4).
 5. Bỏ chọn "lên lịch ghé thăm": các buổi ghé thăm planned được đặt thành `cancelled`, evidence được giữ lại; các buổi ghé thăm completed không bị ảnh hưởng.
+6. `getScheduleWarnings` (domain/visits): cảnh báo ngày quá khứ, không tiến triển, xung đột dời lịch, và nhiều buổi ghé thăm đã lên lịch, độc lập với bất kỳ màn hình nào.
 
 **Kịch bản demo thủ công:**
 1. Tạo outlet kèm buổi ghé thăm → dòng xuất hiện trong lịch, sync chuyển Queued → Synced/Failed.
@@ -264,7 +265,9 @@ Kèm theo một buổi ghé thăm planned, một buổi ghé thăm completed kè
 4. Thêm evidence → đổi giai đoạn → giai đoạn outlet được cập nhật, mục lịch sử hiển thị.
 5. Retry một lần sync bị Failed.
 6. **Bộ lọc lịch (Schedule filters)** — lọc theo rep, trạng thái, ngày (hôm nay/tuần này/quá hạn); nút xóa lọc khôi phục danh sách đầy đủ.
-7. **Dashboard** (`/dashboard`) — xem biểu đồ thanh outlet theo giai đoạn, bảng phân tích theo rep, danh sách buổi ghé thăm sắp tới trong tuần.
+7. **Thêm lịch từ tab Lịch Làm Việc** — mở hộp thoại, chọn outlet, điền các trường, lưu → dòng mới xuất hiện mà không rời khỏi `/schedule`.
+8. **Lịch sử ghé thăm của outlet** — mở trang sửa một outlet và xác nhận mọi buổi ghé thăm (planned/completed/cancelled) đều được liệt kê.
+9. **Dashboard** (`/dashboard`) — xem biểu đồ thanh outlet theo giai đoạn, bảng phân tích theo rep, danh sách buổi ghé thăm sắp tới trong tuần.
 
 ---
 

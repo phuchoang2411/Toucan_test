@@ -1,18 +1,21 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useScopedDB } from '../hooks/useScopedDB';
 import { SALES_REPS } from '../domain/types';
 import { StageBadge } from '../components/StageBadge';
 import { SyncBadge } from '../components/SyncBadge';
+import { VisitStatusCell } from '../components/VisitStatusCell';
+import { ScheduleDialog } from '../components/ScheduleDialog';
 import { isOverdue } from '../domain/visits';
 import { localISODate, localWeekRange } from '../domain/dates';
-import { t, labelFor, VISIT_STATUS_LABELS, CANCEL_REASON_LABELS } from '../strings';
+import { t } from '../strings';
 import type { KeyboardEvent } from 'react';
 
 export function SchedulePage() {
   const db = useScopedDB();
   const navigate = useNavigate();
   const outletById = new Map(db.outlets.map((o) => [o.id, o]));
+  const [showAddSchedule, setShowAddSchedule] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
   const rawRep = searchParams.get('rep');
@@ -61,7 +64,12 @@ export function SchedulePage() {
     <section>
       <header className="page-header">
         <h1>{t('working_schedule_title')}</h1>
+        <button className="btn btn-primary" type="button" onClick={() => setShowAddSchedule(true)}>
+          {t('add_schedule_button')}
+        </button>
       </header>
+
+      <ScheduleDialog open={showAddSchedule} onClose={() => setShowAddSchedule(false)} />
 
       <div className="filters">
         {db.isManager && (
@@ -135,13 +143,7 @@ export function SchedulePage() {
                     <td>{v.objective}</td>
                     <td><SyncBadge visit={v} /></td>
                     <td>
-                      <span className={`badge badge--${v.status}`}>{labelFor(VISIT_STATUS_LABELS, v.status)}</span>
-                      {v.status === 'cancelled' && v.cancelReason && (
-                        <span className="muted" style={{ marginLeft: 4, fontSize: 11 }}>{labelFor(CANCEL_REASON_LABELS, v.cancelReason)}</span>
-                      )}
-                      {isOverdue(v.status, v.visitDate, today) && (
-                        <span className="badge badge--overdue" style={{ marginLeft: 4 }}>{t('overdue_badge')}</span>
-                      )}
+                      <VisitStatusCell visit={v} today={today} />
                     </td>
                   </tr>
                 );

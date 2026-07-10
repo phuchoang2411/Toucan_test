@@ -170,12 +170,26 @@ describe('visitService.complete (BR3–BR5)', () => {
     });
   });
 
-  it('allows completing without stage change and without evidence (BR5)', async () => {
+  it('allows completing without stage change and without evidence (BR5), still logging a held-stage history row (BR4)', async () => {
     resetDB({ outlets: [makeOutlet()], visits: [makeVisit()] });
     const visit = await visitService.complete({ visitId: 'v1', result: 'Owner away, rescheduled' });
     expect(visit.status).toBe('completed');
-    expect(repository.getState().stageHistory).toHaveLength(0);
     expect(repository.getState().outlets[0].currentStage).toBe('SQL');
+    const db = repository.getState();
+    expect(db.stageHistory).toHaveLength(1);
+    expect(db.stageHistory[0]).toMatchObject({
+      outletId: 'o1', visitId: 'v1', fromStage: 'SQL', toStage: 'SQL', changedBy: 'Phúc',
+    });
+  });
+
+  it('completing with "change stage" explicitly kept at the same stage also logs a held-stage row (BR4)', async () => {
+    resetDB({ outlets: [makeOutlet()], visits: [makeVisit()] });
+    const visit = await visitService.complete({ visitId: 'v1', result: 'Discussed, no change', newStage: 'SQL' });
+    expect(visit.status).toBe('completed');
+    expect(repository.getState().outlets[0].currentStage).toBe('SQL');
+    const db = repository.getState();
+    expect(db.stageHistory).toHaveLength(1);
+    expect(db.stageHistory[0]).toMatchObject({ fromStage: 'SQL', toStage: 'SQL' });
   });
 
   it('completion enqueues the visit for sync (L4)', async () => {

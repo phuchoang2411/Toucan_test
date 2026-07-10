@@ -2,8 +2,12 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CHANNELS, SALES_REPS, STAGES, TIERS } from '../domain/types';
 import { localISODate } from '../domain/dates';
+import { getScheduleWarnings } from '../domain/visits';
 import type { Channel, Stage, Tier } from '../domain/types';
 import { StageBadge } from '../components/StageBadge';
+import { SyncBadge } from '../components/SyncBadge';
+import { VisitStatusCell } from '../components/VisitStatusCell';
+import { warningText } from '../components/ScheduleDialog';
 import { t, labelFor, STAGE_LABELS, CHANNEL_LABELS } from '../strings';
 import { useDB } from '../hooks/useDB';
 import { useSession } from '../hooks/useSession';
@@ -73,15 +77,13 @@ export function OutletFormPage() {
     setForm((f) => ({ ...f, [key]: e.target.value }));
 
   const today = localISODate();
-  const warnings: string[] = [];
-  if (schedule && visitDate && visitDate < today)
-    warnings.push(t('visit_date_past_warning'));
-  if (schedule && targetStage === form.currentStage)
-    warnings.push(t('target_stage_no_progression'));
-  if (schedule && existingPlan && visitDate && visitDate !== existingPlan.visitDate)
-    warnings.push(t('reschedule_planned_visit', { from: existingPlan.visitDate, to: visitDate }));
-  if (schedule && existingPlans.length > 1)
-    warnings.push(t('multiple_planned_visits', { count: existingPlans.length, dates: existingPlans.map((p) => p.visitDate).join(', '), date: existingPlan.visitDate }));
+  const warnings: string[] = schedule
+    ? getScheduleWarnings({ visitDate, targetStage, currentStage: form.currentStage, today, existingPlans }).map(warningText)
+    : [];
+
+  const scheduleHistory = editing
+    ? [...db.visits].filter((v) => v.outletId === editing.id).sort((a, b) => b.visitDate.localeCompare(a.visitDate))
+    : [];
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -223,6 +225,38 @@ export function OutletFormPage() {
           {saving ? t('saving') : t('save_outlet')}
         </button>
       </form>
+
+      {editing && (
+        <div className="card">
+          <h2>{t('schedule_history_title')}</h2>
+          {scheduleHistory.length === 0 ? (
+            <p className="muted">{t('no_schedule_history_yet')}</p>
+          ) : (
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>{t('date_header')}</th><th>{t('stage_planning_header')}</th><th>{t('target_header')}</th>
+                    <th>{t('objective_header')}</th><th>{t('misa_header')}</th><th>{t('status_header')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {scheduleHistory.map((v) => (
+                    <tr key={v.id}>
+                      <td><Link to={`/visits/${v.id}`}>{v.visitDate}</Link></td>
+                      <td><StageBadge stage={v.currentStageSnapshot} /></td>
+                      <td><StageBadge stage={v.targetStage} /></td>
+                      <td>{v.objective}</td>
+                      <td><SyncBadge visit={v} /></td>
+                      <td><VisitStatusCell visit={v} today={today} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
