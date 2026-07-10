@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import { LocaleProvider } from './components/LocaleContext';
 import { syncService } from './services/syncService';
 import './index.css';
 
@@ -13,7 +14,12 @@ syncService.resumePending();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      {/* Wraps App (not the reverse) so the key={locale} remount in
+          LocaleProvider re-executes App's own render — including the
+          nav labels it computes inline — not just nested components. */}
+      <LocaleProvider>
+        <App />
+      </LocaleProvider>
     </BrowserRouter>
   </StrictMode>,
 );

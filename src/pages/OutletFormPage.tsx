@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CHANNELS, SALES_REPS, STAGES, STAGE_LABELS, TIERS } from '../domain/types';
+import { CHANNELS, SALES_REPS, STAGES, TIERS } from '../domain/types';
 import { localISODate } from '../domain/dates';
 import type { Channel, Stage, Tier } from '../domain/types';
 import { StageBadge } from '../components/StageBadge';
-import { t } from '../strings';
+import { t, labelFor, STAGE_LABELS, CHANNEL_LABELS } from '../strings';
 import { useDB } from '../hooks/useDB';
 import { useSession } from '../hooks/useSession';
 import { canAccess } from '../domain/authz';
@@ -138,7 +138,7 @@ export function OutletFormPage() {
             <div className="field">
               <label htmlFor="outlet-channel">{t('channel_label')}</label>
               <select id="outlet-channel" value={form.channel} onChange={set('channel')}>
-                {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+                {CHANNELS.map((c) => <option key={c} value={c}>{labelFor(CHANNEL_LABELS, c)}</option>)}
               </select>
             </div>
             <div className="field">
@@ -171,7 +171,7 @@ export function OutletFormPage() {
                 </>
               ) : (
                 <select id="outlet-current-stage" value={form.currentStage} onChange={set('currentStage')}>
-                  {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+                  {STAGES.map((s) => <option key={s} value={s}>{labelFor(STAGE_LABELS, s)}</option>)}
                 </select>
               )}
             </div>
@@ -185,7 +185,7 @@ export function OutletFormPage() {
         <div className="card">
           <label className="checkbox-row">
             <input type="checkbox" checked={schedule} onChange={(e) => setSchedule(e.target.checked)} />
-            Schedule a visit (<span lang="vi">đi tuyến</span>)
+            {t('schedule_a_visit')}
           </label>
           {schedule && (
             <div className="field-group--conditional">
@@ -198,7 +198,7 @@ export function OutletFormPage() {
                 <div className="field">
                   <label htmlFor="target-stage">{t('target_stage_label')}</label>
                   <select id="target-stage" value={targetStage} onChange={(e) => setTargetStage(e.target.value as Stage)}>
-                    {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+                    {STAGES.map((s) => <option key={s} value={s}>{labelFor(STAGE_LABELS, s)}</option>)}
                   </select>
                 </div>
               </div>

@@ -1,21 +1,29 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { setLocale } from '../strings';
+import { createContext, Fragment, useCallback, useContext, useState, type ReactNode } from 'react';
+import { getLocale, setLocale as setModuleLocale, type Locale } from '../strings';
 
-const LocaleContext = createContext<'en' | 'vi'>('vi');
+interface LocaleContextValue {
+  locale: Locale;
+  setLocale: (locale: Locale) => void;
+}
+
+const LocaleContext = createContext<LocaleContextValue>({ locale: getLocale(), setLocale: () => {} });
 
 export function LocaleProvider({ children }: { children: ReactNode }) {
-  const [locale] = useState<'en' | 'vi'>(() => {
-    return (localStorage.getItem('locale') as 'en' | 'vi') ?? 'vi';
-  });
+  const [locale, setLocaleState] = useState<Locale>(getLocale());
 
-  useEffect(() => {
-    setLocale(locale);
-    localStorage.setItem('locale', locale);
-  }, [locale]);
+  const setLocale = useCallback((next: Locale) => {
+    setModuleLocale(next);
+    localStorage.setItem('locale', next);
+    setLocaleState(next);
+  }, []);
 
   return (
-    <LocaleContext.Provider value={locale}>
-      {children}
+    <LocaleContext.Provider value={{ locale, setLocale }}>
+      {/* Keying on locale remounts the subtree so every t()/labelFor() call
+          re-evaluates with the new language — t() reads a plain module
+          variable, not React state, so a normal re-render wouldn't pick up
+          the change on its own. */}
+      <Fragment key={locale}>{children}</Fragment>
     </LocaleContext.Provider>
   );
 }

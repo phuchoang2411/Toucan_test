@@ -1,14 +1,13 @@
 import type { Visit } from '../domain/types';
-import { t, SYNC_STATUS_LABELS } from '../strings';
+import { t, labelFor, SYNC_STATUS_LABELS } from '../strings';
 import { syncService } from '../services/syncService';
 import { fireToast } from './Toast';
 import styles from './SyncBadge.module.css';
 
 export function SyncBadge({ visit }: { visit: Visit }) {
-  const label = SYNC_STATUS_LABELS[visit.misaSyncStatus]?.vi ?? visit.misaSyncStatus;
   return (
     <span className={`${styles.badge} ${styles[visit.misaSyncStatus]}`}>
-      {label}
+      {labelFor(SYNC_STATUS_LABELS, visit.misaSyncStatus)}
       {visit.misaSyncStatus === 'Failed' && (
         <button
           className={styles.retry}

@@ -8,13 +8,12 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { Toast } from './components/Toast';
 import { RouteFocus } from './components/RouteFocus';
 import { UserSwitcher } from './components/UserSwitcher';
-import { LocaleProvider } from './components/LocaleContext';
+import { LocaleSwitcher } from './components/LocaleSwitcher';
 import { t } from './strings';
 
 export default function App() {
   return (
-    <LocaleProvider>
-      <div className="app">
+    <div className="app">
       <Toast />
       <RouteFocus />
       <nav className="topnav">
@@ -22,6 +21,7 @@ export default function App() {
         <NavLink to="/outlets">{t('nav_outlets')}</NavLink>
         <NavLink to="/schedule">{t('nav_working_schedule')}</NavLink>
         <NavLink to="/dashboard">{t('nav_dashboard')}</NavLink>
+        <LocaleSwitcher />
         <UserSwitcher />
       </nav>
       <main className="content">
@@ -36,7 +36,6 @@ export default function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-      </div>
-    </LocaleProvider>
+    </div>
   );
 }

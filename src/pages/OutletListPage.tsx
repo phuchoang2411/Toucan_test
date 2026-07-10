@@ -1,8 +1,8 @@
 import { Link, useSearchParams } from 'react-router-dom';
-import { STAGES, STAGE_LABELS } from '../domain/types';
+import { STAGES } from '../domain/types';
 import { useScopedDB } from '../hooks/useScopedDB';
 import { StageBadge } from '../components/StageBadge';
-import { t } from '../strings';
+import { t, labelFor, STAGE_LABELS, CHANNEL_LABELS } from '../strings';
 
 export function OutletListPage() {
   const { outlets } = useScopedDB();
@@ -30,7 +30,7 @@ export function OutletListPage() {
       {stageFilter !== 'all' && (
         <div className="filters" style={{ marginBottom: 12 }}>
           <span className="badge badge--active-filter">
-            {t('stage_filter_chip', { label: STAGE_LABELS[stageFilter as typeof STAGES[number]] })}
+            {t('stage_filter_chip', { label: labelFor(STAGE_LABELS, stageFilter) })}
             <button className="btn-clear-chip" onClick={clearStageFilter} aria-label={t('clear_stage_filter_aria')}>&times;</button>
           </span>
         </div>
@@ -53,7 +53,7 @@ export function OutletListPage() {
               {sorted.map((o) => (
                 <tr key={o.id}>
                   <td><Link to={`/outlets/${o.id}/edit`}>{o.name}</Link></td>
-                  <td>{o.channel}</td>
+                  <td>{labelFor(CHANNEL_LABELS, o.channel)}</td>
                   <td>{o.tier}</td>
                   <td>{o.salesRep}</td>
                   <td><StageBadge stage={o.currentStage} /></td>

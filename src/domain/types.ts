@@ -1,15 +1,6 @@
 export const STAGES = ['RawLead', 'SQL', 'CustomerSampling', 'ProposalSent', 'Won', 'Lost'] as const;
 export type Stage = (typeof STAGES)[number];
 
-export const STAGE_LABELS: Record<Stage, string> = {
-  RawLead: 'Raw Lead',
-  SQL: 'SQL',
-  CustomerSampling: 'Customer Sampling',
-  ProposalSent: 'Proposal Sent',
-  Won: 'Won',
-  Lost: 'Lost',
-};
-
 export const CHANNELS = ['Cafe', 'Restaurant', 'Hotel', 'Bar', 'Bakery'] as const;
 export type Channel = (typeof CHANNELS)[number];
 

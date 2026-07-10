@@ -1,21 +1,30 @@
 // ── Setup ──
-let locale: 'en' | 'vi' = 'vi';
+export type Locale = 'en' | 'vi';
+
+let locale: Locale = (localStorage.getItem('locale') as Locale) || 'vi';
 
 type StrKey = keyof typeof en;
 
-export function setLocale(l: 'en' | 'vi') { locale = l; }
+export function setLocale(l: Locale) { locale = l; }
+
+export function getLocale(): Locale { return locale; }
 
 export function t(key: StrKey, params?: Record<string, string | number>): string {
   let s = (locale === 'vi' ? vi : en)[key];
   if (params) {
     for (const [k, v] of Object.entries(params)) {
-      s = s.replace(`{${k}}`, String(v));
+      // split/join (not .replace) so every occurrence is substituted and the
+      // value can't be misread as a $-prefixed replacement pattern.
+      s = s.split(`{${k}}`).join(String(v));
     }
   }
   return s;
 }
 
-export function useCurrentLocale() { return locale; }
+// Locale-aware lookup for enum-keyed bilingual label maps (STAGE_LABELS, etc.)
+export function labelFor(map: Record<string, Record<Locale, string>>, key: string): string {
+  return map[key]?.[locale] ?? key;
+}
 
 // ── Nav / App shell ──
 const en = {
@@ -79,7 +88,7 @@ const en = {
   current_stage_label: 'Current stage',
   change_stage_via_visit: 'Change stage by completing a visit',
   notes_next_step: 'Notes / next step',
-  schedule_a_visit: 'Schedule a visit',
+  schedule_a_visit: 'Schedule a visit (đi tuyến)',
   visit_date_label: 'Visit date *',
   target_stage_label: 'Target stage *',
   visit_objective_label: 'Visit objective *',
@@ -164,10 +173,11 @@ const en = {
   cancelled_title: 'Cancelled',
   result_title: 'Result',
   visit_was_cancelled: 'This visit was cancelled.',
-  reason_display: 'Reason: {reason}',
+  reason_prefix: 'Reason:',
   note_display: 'Note: {note}',
   evidence_preserved: 'Evidence is preserved.',
   cancellation_sent_misa: 'A cancellation was sent to MISA.',
+  completed_different_day: '⚠ Completed on a different day than scheduled ({date}) — {note}',
   completed_readonly: 'This visit is completed and read-only.',
   complete_visit_title: 'Complete visit',
   result_label: 'Result *',
@@ -205,6 +215,9 @@ const en = {
   retry_sync_aria: 'Retry sync for {id}',
   retry_button: 'Retry',
   sync_retry_queued: 'Sync retry queued',
+
+  // ── Locale switcher ──
+  locale_switcher_aria: 'Choose language',
 };
 
 const vi: Record<StrKey, string> = {
@@ -269,7 +282,7 @@ const vi: Record<StrKey, string> = {
   current_stage_label: 'Giai đoạn hiện tại',
   change_stage_via_visit: 'Thay đổi giai đoạn bằng cách hoàn thành một lượt ghé thăm',
   notes_next_step: 'Ghi chú / bước tiếp theo',
-  schedule_a_visit: 'Schedule a visit (đi tuyến)',
+  schedule_a_visit: 'Lên lịch ghé thăm (đi tuyến)',
   visit_date_label: 'Ngày ghé thăm *',
   target_stage_label: 'Giai đoạn mục tiêu *',
   visit_objective_label: 'Mục tiêu ghé thăm *',
@@ -354,10 +367,11 @@ const vi: Record<StrKey, string> = {
   cancelled_title: 'Đã hủy',
   result_title: 'Kết quả',
   visit_was_cancelled: 'Lượt ghé thăm này đã bị hủy.',
-  reason_display: 'Lý do: {reason}',
+  reason_prefix: 'Lý do:',
   note_display: 'Ghi chú: {note}',
   evidence_preserved: 'Minh chứng được giữ lại.',
   cancellation_sent_misa: 'Đã gửi thông báo hủy đến MISA.',
+  completed_different_day: '⚠ Hoàn thành vào ngày khác với lịch đã đặt ({date}) — {note}',
   completed_readonly: 'Lượt ghé thăm này đã hoàn thành và chỉ có thể xem.',
   complete_visit_title: 'Hoàn thành lượt ghé thăm',
   result_label: 'Kết quả *',
@@ -395,17 +409,53 @@ const vi: Record<StrKey, string> = {
   retry_sync_aria: 'Thử lại đồng bộ cho {id}',
   retry_button: 'Thử lại',
   sync_retry_queued: 'Đã đưa vào hàng đợi thử lại đồng bộ',
+
+  // ── Locale switcher ──
+  locale_switcher_aria: 'Chọn ngôn ngữ',
 };
 
 // ── Data-driven label maps ──
-export const VISIT_STATUS_LABELS: Record<string, { en: string; vi: string }> = {
+// Look these up via `labelFor(MAP, key)`, not `MAP[key]?.vi`/`.en` directly —
+// a hardcoded locale bypasses whatever the user actually has selected.
+export const VISIT_STATUS_LABELS: Record<string, Record<Locale, string>> = {
   planned: { en: 'Planned', vi: 'Đã lên lịch' },
   completed: { en: 'Completed', vi: 'Hoàn thành' },
   cancelled: { en: 'Cancelled', vi: 'Đã hủy' },
 };
 
-export const SYNC_STATUS_LABELS: Record<string, { en: string; vi: string }> = {
+export const SYNC_STATUS_LABELS: Record<string, Record<Locale, string>> = {
   Queued: { en: 'Queued', vi: 'Đang chờ' },
   Synced: { en: 'Synced', vi: 'Đã đồng bộ' },
   Failed: { en: 'Failed', vi: 'Thất bại' },
+};
+
+export const STAGE_LABELS: Record<string, Record<Locale, string>> = {
+  RawLead: { en: 'Raw Lead', vi: 'Đầu mối mới' },
+  SQL: { en: 'SQL', vi: 'SQL' },
+  CustomerSampling: { en: 'Customer Sampling', vi: 'Cho khách dùng thử mẫu' },
+  ProposalSent: { en: 'Proposal Sent', vi: 'Đã gửi báo giá' },
+  Won: { en: 'Won', vi: 'Chốt thành công' },
+  Lost: { en: 'Lost', vi: 'Không thành công' },
+};
+
+export const CHANNEL_LABELS: Record<string, Record<Locale, string>> = {
+  Cafe: { en: 'Cafe', vi: 'Quán cà phê' },
+  Restaurant: { en: 'Restaurant', vi: 'Nhà hàng' },
+  Hotel: { en: 'Hotel', vi: 'Khách sạn' },
+  Bar: { en: 'Bar', vi: 'Quán bar' },
+  Bakery: { en: 'Bakery', vi: 'Tiệm bánh' },
+};
+
+export const CANCEL_REASON_LABELS: Record<string, Record<Locale, string>> = {
+  'Customer postponed': { en: 'Customer postponed', vi: 'Khách hàng hoãn lịch' },
+  'No-show': { en: 'No-show', vi: 'Khách không đến' },
+  'Planned by mistake': { en: 'Planned by mistake', vi: 'Lên lịch nhầm' },
+  'Unscheduled from outlet form': { en: 'Unscheduled from outlet form', vi: 'Bỏ lịch từ biểu mẫu điểm bán' },
+  Other: { en: 'Other', vi: 'Khác' },
+};
+
+export const EVIDENCE_TYPE_LABELS: Record<string, Record<Locale, string>> = {
+  photo: { en: 'photo', vi: 'ảnh' },
+  file: { en: 'file', vi: 'tệp' },
+  note: { en: 'note', vi: 'ghi chú' },
 };

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CANCEL_REASONS, EVIDENCE_TYPES, STAGES, STAGE_LABELS } from '../domain/types';
+import { CANCEL_REASONS, EVIDENCE_TYPES, STAGES } from '../domain/types';
 import type { CancelReason, EvidenceType, Stage } from '../domain/types';
 import { useDB } from '../hooks/useDB';
 import { useSession } from '../hooks/useSession';
@@ -11,7 +11,7 @@ import { localISODate } from '../domain/dates';
 import { StageBadge } from '../components/StageBadge';
 import { SyncBadge } from '../components/SyncBadge';
 import { fireToast } from '../components/Toast';
-import { t, VISIT_STATUS_LABELS } from '../strings';
+import { t, labelFor, VISIT_STATUS_LABELS, STAGE_LABELS, CANCEL_REASON_LABELS, EVIDENCE_TYPE_LABELS } from '../strings';
 
 export function VisitDetailPage() {
   const { id } = useParams();
@@ -158,7 +158,7 @@ export function VisitDetailPage() {
     <section>
       <header className="page-header">
         <h1>{t('visit_title', { name: outlet.name })}</h1>
-        <span className={`badge badge--${visit.status}`}>{VISIT_STATUS_LABELS[visit.status]?.vi ?? visit.status}</span>
+        <span className={`badge badge--${visit.status}`}>{labelFor(VISIT_STATUS_LABELS, visit.status)}</span>
         <SyncBadge visit={visit} />
       </header>
 
@@ -230,7 +230,7 @@ export function VisitDetailPage() {
                   onChange={(e) => { setCancelReason(e.target.value); setConfirmCancel(false); }}
                 >
                   {CANCEL_REASONS.filter((r) => r !== 'Unscheduled from outlet form').map((r) => (
-                    <option key={r} value={r}>{r}</option>
+                    <option key={r} value={r}>{labelFor(CANCEL_REASON_LABELS, r)}</option>
                   ))}
                 </select>
               </div>
@@ -262,14 +262,14 @@ export function VisitDetailPage() {
         <h2>{t('evidence_count', { count: evidence.length })}</h2>
         {evidence.length === 0 && <p className="muted">{t('no_evidence_yet')}</p>}
         <ul>
-          {evidence.map((e) => <li key={e.id}>[{e.type}] {e.name}</li>)}
+          {evidence.map((e) => <li key={e.id}>[{labelFor(EVIDENCE_TYPE_LABELS, e.type)}] {e.name}</li>)}
         </ul>
         {!readOnly && (
           <div className="field-row">
             <div className="field">
               <label htmlFor="ev-type">{t('type_label')}</label>
               <select id="ev-type" value={evType} onChange={(e) => setEvType(e.target.value as EvidenceType)}>
-                {EVIDENCE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                {EVIDENCE_TYPES.map((et) => <option key={et} value={et}>{labelFor(EVIDENCE_TYPE_LABELS, et)}</option>)}
               </select>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
@@ -299,7 +299,7 @@ export function VisitDetailPage() {
           {visit.status === 'cancelled' ? (
             <>
               <p className="muted">{t('visit_was_cancelled')}</p>
-              {visit.cancelReason && <p>{t('reason_display', { reason: visit.cancelReason! })}</p>}
+              {visit.cancelReason && <p>{t('reason_prefix')} <strong>{labelFor(CANCEL_REASON_LABELS, visit.cancelReason)}</strong></p>}
               {visit.cancelNote && <p className="muted">{t('note_display', { note: visit.cancelNote })}</p>}
               <p className="muted">{t('evidence_preserved')}</p>
               <p className="muted">{t('cancellation_sent_misa')}</p>
@@ -309,7 +309,7 @@ export function VisitDetailPage() {
               <p>{visit.result}</p>
               {visit.resultNotes && <p className="muted">{visit.resultNotes}</p>}
               {visit.dateMismatchNote && (
-                <p className="warning-text">⚠ Completed on a different day than scheduled ({visit.visitDate}) — {visit.dateMismatchNote}</p>
+                <p className="warning-text">{t('completed_different_day', { date: visit.visitDate, note: visit.dateMismatchNote })}</p>
               )}
               <p className="muted">{t('completed_readonly')}</p>
             </>
@@ -343,7 +343,7 @@ export function VisitDetailPage() {
               <div className="field">
                 <label htmlFor="visit-new-stage">{t('new_stage_default')}</label>
                 <select id="visit-new-stage" value={newStage} onChange={(e) => setNewStage(e.target.value as Stage)}>
-                  {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+                  {STAGES.map((s) => <option key={s} value={s}>{labelFor(STAGE_LABELS, s)}</option>)}
                 </select>
               </div>
               {newStage === outlet.currentStage && (

@@ -6,7 +6,7 @@ import { StageBadge } from '../components/StageBadge';
 import { SyncBadge } from '../components/SyncBadge';
 import { isOverdue } from '../domain/visits';
 import { localISODate, localWeekRange } from '../domain/dates';
-import { t, VISIT_STATUS_LABELS } from '../strings';
+import { t, labelFor, VISIT_STATUS_LABELS, CANCEL_REASON_LABELS } from '../strings';
 import type { KeyboardEvent } from 'react';
 
 export function SchedulePage() {
@@ -135,9 +135,9 @@ export function SchedulePage() {
                     <td>{v.objective}</td>
                     <td><SyncBadge visit={v} /></td>
                     <td>
-                      <span className={`badge badge--${v.status}`}>{VISIT_STATUS_LABELS[v.status]?.vi ?? v.status}</span>
+                      <span className={`badge badge--${v.status}`}>{labelFor(VISIT_STATUS_LABELS, v.status)}</span>
                       {v.status === 'cancelled' && v.cancelReason && (
-                        <span className="muted" style={{ marginLeft: 4, fontSize: 11 }}>{v.cancelReason}</span>
+                        <span className="muted" style={{ marginLeft: 4, fontSize: 11 }}>{labelFor(CANCEL_REASON_LABELS, v.cancelReason)}</span>
                       )}
                       {isOverdue(v.status, v.visitDate, today) && (
                         <span className="badge badge--overdue" style={{ marginLeft: 4 }}>{t('overdue_badge')}</span>

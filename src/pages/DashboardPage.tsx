@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
 import { useScopedDB } from '../hooks/useScopedDB';
-import { STAGES, STAGE_LABELS, SALES_REPS } from '../domain/types';
+import { STAGES, SALES_REPS } from '../domain/types';
 import { isOverdue } from '../domain/visits';
 import { localISODate, localWeekRange } from '../domain/dates';
-import { t } from '../strings';
+import { t, labelFor, STAGE_LABELS } from '../strings';
 
 export function DashboardPage() {
   const db = useScopedDB();
@@ -47,7 +47,7 @@ export function DashboardPage() {
           const pct = Math.round((count / maxStageCount) * 100);
           const barContent = (
             <>
-              <span className="bar-label">{STAGE_LABELS[stage]}</span>
+              <span className="bar-label">{labelFor(STAGE_LABELS, stage)}</span>
               <div className="bar-track" aria-hidden="true">
                 <div className="bar-fill" style={{ width: `${pct}%` }} />
               </div>
