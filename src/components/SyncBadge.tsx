@@ -1,23 +1,25 @@
 import type { Visit } from '../domain/types';
+import { t, SYNC_STATUS_LABELS } from '../strings';
 import { syncService } from '../services/syncService';
 import { fireToast } from './Toast';
 import styles from './SyncBadge.module.css';
 
 export function SyncBadge({ visit }: { visit: Visit }) {
+  const label = SYNC_STATUS_LABELS[visit.misaSyncStatus]?.vi ?? visit.misaSyncStatus;
   return (
     <span className={`${styles.badge} ${styles[visit.misaSyncStatus]}`}>
-      {visit.misaSyncStatus}
+      {label}
       {visit.misaSyncStatus === 'Failed' && (
         <button
           className={styles.retry}
-          aria-label={`Retry sync for ${visit.id.slice(0, 8)}`}
+          aria-label={t('retry_sync_aria', { id: visit.id.slice(0, 8) })}
           onClick={(e) => {
             e.stopPropagation();
             syncService.retry(visit.id);
-            fireToast('Sync retry queued', 'info');
+            fireToast(t('sync_retry_queued'), 'info');
           }}
         >
-          Retry
+          {t('retry_button')}
         </button>
       )}
     </span>
