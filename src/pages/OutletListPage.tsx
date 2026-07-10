@@ -1,19 +1,46 @@
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { STAGES, STAGE_LABELS } from '../domain/types';
 import { useDB } from '../hooks/useDB';
 import { StageBadge } from '../components/StageBadge';
 
 export function OutletListPage() {
   const { outlets } = useDB();
-  const sorted = [...outlets].sort((a, b) => a.name.localeCompare(b.name));
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawStage = searchParams.get('stage');
+  const stageFilter = rawStage && STAGES.includes(rawStage as typeof STAGES[number]) ? rawStage : 'all';
+
+  const filtered = stageFilter === 'all'
+    ? outlets
+    : outlets.filter((o) => o.currentStage === stageFilter);
+
+  const sorted = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+
+  function clearStageFilter() {
+    setSearchParams({}, { replace: true });
+  }
+
   return (
     <section>
       <header className="page-header">
         <h1>C.A Outlets</h1>
         <Link className="btn btn-primary" to="/outlets/new">+ New outlet</Link>
       </header>
+
+      {stageFilter !== 'all' && (
+        <div className="filters" style={{ marginBottom: 12 }}>
+          <span className="badge badge--active-filter">
+            Stage: {STAGE_LABELS[stageFilter as typeof STAGES[number]]}
+            <button className="btn-clear-chip" onClick={clearStageFilter} aria-label="Clear stage filter">&times;</button>
+          </span>
+        </div>
+      )}
+
       {sorted.length === 0 ? (
         <div className="empty-state">
-          <p>No outlets yet. Add your first outlet to get started.</p>
+          <p>{stageFilter !== 'all' ? 'No outlets match this stage filter.' : 'No outlets yet. Add your first outlet to get started.'}</p>
+          {stageFilter !== 'all' && (
+            <button className="btn btn-secondary" onClick={clearStageFilter}>Clear filter</button>
+          )}
         </div>
       ) : (
         <div className="table-wrap">

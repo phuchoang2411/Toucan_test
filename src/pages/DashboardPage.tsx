@@ -43,13 +43,22 @@ export function DashboardPage() {
         {STAGES.map((stage) => {
           const count = db.outlets.filter((o) => o.currentStage === stage).length;
           const pct = Math.round((count / maxStageCount) * 100);
-          return (
-            <div key={stage} className="bar-row">
+          const barContent = (
+            <>
               <span className="bar-label">{STAGE_LABELS[stage]}</span>
               <div className="bar-track" aria-hidden="true">
                 <div className="bar-fill" style={{ width: `${pct}%` }} />
               </div>
               <span className="bar-count">{count}</span>
+            </>
+          );
+          return (
+            <div key={stage} className="bar-row">
+              {count > 0 ? (
+                <Link to={`/outlets?stage=${stage}`} className="bar-row-link">
+                  {barContent}
+                </Link>
+              ) : barContent}
             </div>
           );
         })}
@@ -64,14 +73,28 @@ export function DashboardPage() {
             </thead>
             <tbody>
               {repRows.map((r) => (
-                <tr key={r.rep}>
-                  <td>{r.rep}</td>
-                  <td>{r.outlets}</td>
-                  <td>{r.planned}</td>
-                  <td>{r.overdue > 0 ? <span className="badge badge--overdue">{r.overdue}</span> : r.overdue}</td>
-                  <td>{r.completed}</td>
-                </tr>
-              ))}
+                  <tr key={r.rep}>
+                    <td>
+                      <Link to={`/schedule?rep=${r.rep}`} className="drill-link">{r.rep}</Link>
+                    </td>
+                    <td>{r.outlets}</td>
+                    <td>
+                      {r.planned > 0
+                        ? <Link to={`/schedule?rep=${r.rep}&status=planned`} className="drill-link">{r.planned}</Link>
+                        : r.planned}
+                    </td>
+                    <td>
+                      {r.overdue > 0
+                        ? <Link to={`/schedule?rep=${r.rep}&when=overdue`} className="drill-link"><span className="badge badge--overdue">{r.overdue}</span></Link>
+                        : r.overdue}
+                    </td>
+                    <td>
+                      {r.completed > 0
+                        ? <Link to={`/schedule?rep=${r.rep}&status=completed`} className="drill-link">{r.completed}</Link>
+                        : r.completed}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
