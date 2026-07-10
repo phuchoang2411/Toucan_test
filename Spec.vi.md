@@ -207,6 +207,15 @@ Hệ quả: việc thay thế repository bằng các lệnh gọi `fetch()` tớ
 
 ---
 
+**Hủy/dời lịch từng buổi ghé thăm (rep):**
+- Trang chi tiết buổi ghé thăm (`/visits/:id`) cho các buổi planned: "Dời lịch…" hiển thị date picker nội dòng với xác nhận/hủy; "Hủy buổi ghé thăm…" hiển thị một `<select>` lý do (Customer postponed, No-show, Planned by mistake, Other + ghi chú tự do) với xác nhận hai cú nhấp. Thành công → toast và ở lại trang.
+- Thẻ buổi ghé thăm đã hủy hiển thị lý do và ghi chú. Bảng lịch hiển thị lý do hủy dưới dạng chữ mờ.
+
+**Dashboard drill-down (manager):**
+- Các thanh stage trên Dashboard → `/outlets?stage=<stage>` với chip bộ lọc đang hoạt động và nút "Xóa".
+- Các ô theo rep trên Dashboard → `/schedule?rep=<rep>&status/when=<filter>`.
+- Số lượng bằng 0 được hiển thị dưới dạng văn bản thuần (không có link dẫn đến trang trống).
+
 ## 9. Dữ liệu mẫu (Seed Data)
 
 Sales reps: `Phúc`, `Linh`, `Minh`.
@@ -250,8 +259,8 @@ Tích hợp MISA thật, upload file thật, xác thực/phân quyền, đa tena
 1. ~~Việc hủy lịch không được truyền sang MISA~~ — đã giải quyết: `cancel()` trên port sync đưa thông điệp hủy vào hàng đợi cho mỗi buổi ghé thăm bị hủy.
 2. ~~Không có trạng thái `cancelled` cho buổi ghé thăm~~ — đã giải quyết: các buổi ghé thăm planned được hủy tại chỗ, giữ lại cùng evidence làm bản ghi kiểm toán.
 3. **Quá hạn một phần (Partial overdue)** — phát hiện quá hạn được tính toán dẫn xuất (không thay đổi mô hình dữ liệu), nhưng không có "danh sách quá hạn" chuyên dụng ngoài bộ lọc trong lịch, và không có tự động chuyển trạng thái.
-4. **Không có hủy từng buổi ghé thăm riêng lẻ** — chỉ hủy được qua form outlet (bỏ chọn "Schedule a visit").
+4. ~~Không có hủy từng buổi ghé thăm riêng lẻ~~ — đã giải quyết: hủy/dời lịch từng buổi từ trang chi tiết buổi ghé thăm (xem §8).
 5. **Không có kích hoạt lại** — cancelled là trạng thái cuối; hãy lên lịch buổi ghé thăm mới.
 6. **Mock retry không phân biệt được payload** — mock `cancel` ủy quyền cho `enqueue`; adapter thật sẽ gửi payload hủy MISA khác.
-7. **Không có quy trình no-show** — không có trạng thái tự động cho các buổi ghé thăm không diễn ra.
-8. **Báo cáo vẫn còn tối thiểu** — dashboard chỉ là một ảnh chụp nhanh một trang.
+7. ~~Không có quy trình no-show~~ — đã giải quyết: hủy với lý do bao gồm "No-show" (xem §8).
+8. ~~Báo cáo vẫn còn tối thiểu~~ — đã giảm thiểu: dashboard drill-down với URL bộ lọc có thể link (xem §8); dashboard vẫn là ảnh chụp nhanh một trang.

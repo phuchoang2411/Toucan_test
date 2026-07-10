@@ -82,7 +82,20 @@ prototype gọi tới.
    khôi phục danh sách đầy đủ.
 8. **Dashboard** (`/dashboard`) — xem biểu đồ thanh ngang số outlet theo giai đoạn, bảng phân
    tích theo từng rep (outlets/planned/overdue/completed), và danh sách buổi ghé thăm sắp tới
-   trong tuần kèm liên kết đến từng buổi ghé thăm.
+    trong tuần kèm liên kết đến từng buổi ghé thăm.
+
+**Tính năng mới trong phiên bản này — thao tác từng buổi ghé thăm:**
+8. Mở một buổi ghé thăm planned → nhấp "Dời lịch…" → chọn ngày mới → xác nhận → toast, lịch hiển thị dòng đã được dời.
+9. Dời lịch vào ngày đã có lịch → lỗi nội dòng `DATE_ALREADY_PLANNED`.
+10. Mở buổi ghé thăm planned khác → nhấp "Hủy buổi ghé thăm…" → chọn "No-show" → nhấp "Hủy" → nhấp lại để xác nhận → toast, trang chuyển sang thẻ chỉ đọc đã hủy kèm lý do.
+11. Bảng lịch: các dòng đã hủy hiển thị lý do dưới dạng chữ mờ bên cạnh badge.
+12. Bỏ chọn lịch trên form outlet: vẫn hoạt động, giờ ghi "Unscheduled from outlet form".
+
+**Dashboard drill-down:**
+13. Dashboard: nhấp vào thanh stage → danh sách outlet được lọc theo stage đó kèm chip; nhấp vào × trên chip để xóa lọc.
+14. Dashboard: nhấp vào tên rep → lịch được lọc trước theo rep đó.
+15. Dashboard: nhấp vào số quá hạn của rep → lịch được lọc trước theo rep đó + quá hạn.
+16. Trạng thái bộ lọc nằm trong URL và có thể link/bookmark được.
 
 ## Unit test (`npm test`)
 

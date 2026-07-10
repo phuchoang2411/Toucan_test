@@ -207,6 +207,15 @@ Consequence: replacing the repository with `fetch()` calls to a real Express/Mon
 
 ---
 
+**Per-visit reschedule & cancel (rep):**
+- Visit detail (`/visits/:id`) for planned visits: "Reschedule…" reveals an inline date picker with confirm/cancel; "Cancel visit…" reveals a reason `<select>` (Customer postponed, No-show, Planned by mistake, Other + free-text note) with a two-click confirm. Success → toast and stay on page.
+- Cancelled visit card shows reason and note. Schedule table shows cancel reason as muted text.
+
+**Dashboard drill-down (manager):**
+- Dashboard stage bars → `/outlets?stage=<stage>` with an active-filter chip and "Clear" button.
+- Dashboard per-rep cells → `/schedule?rep=<rep>&status/ when=<filter>`.
+- Zero counts render as plain text (no dead-end links).
+
 ## 9. Seed Data
 
 Sales reps: `Phúc`, `Linh`, `Minh`.
@@ -250,8 +259,8 @@ Real MISA integration, real file upload, auth/permissions, multi-tenant, route o
 1. ~~Cancellations not propagated to MISA~~ — resolved: `cancel()` on the sync port enqueues a cancellation message per cancelled visit.
 2. ~~No `cancelled` visit status~~ — resolved: planned visits are cancelled in place, kept with their evidence as audit records.
 3. **Partial overdue** — overdue detection is derived (no data-model change), but there is no dedicated "overdue visit list" beyond the schedule filter preset, and no automated status flip.
-4. **No per-visit cancel** — only cancels via the outlet form (uncheck "Schedule a visit").
+4. ~~No per-visit cancel~~ — resolved: per-visit reschedule/cancel from the visit detail page (see §8).
 5. **No re-activation** — cancelled is terminal; schedule a new visit instead.
 6. **Mock retry can't distinguish payloads** — the mock `cancel` delegates to `enqueue`; a real adapter sends a different MISA cancel payload.
-7. **No no-show workflow** — there's no automated status for no-shows.
-8. **Reporting still minimal** — dashboard is a single-page snapshot.
+7. ~~No no-show workflow~~ — resolved: cancel with reason includes "No-show" (see §8).
+8. ~~Reporting still minimal~~ — mitigated: dashboard drill-down with linkable filter URLs (see §8); the dashboard is still a single-page snapshot.

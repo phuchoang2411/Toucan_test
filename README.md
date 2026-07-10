@@ -80,7 +80,20 @@ hooks to. They are present for that contract, not invoked by the prototype's UI.
    Clear filters button restores the full list.
 8. **Dashboard** (`/dashboard`) — view a horizontal bar chart of outlets per
    stage, a per-rep breakdown table (outlets/planned/overdue/completed), and an
-   upcoming-this-week visit list with links to each visit.
+    upcoming-this-week visit list with links to each visit.
+
+**New in this version — per-visit actions:**
+8. Open a planned visit → click "Reschedule…" → pick a new date → confirm → toast, schedule shows moved row.
+9. Reschedule onto an occupied date → inline `DATE_ALREADY_PLANNED` error.
+10. Open another planned visit → click "Cancel visit…" → select "No-show" → click "Cancel visit" → click again to confirm → toast, page flips to read-only cancelled card with reason shown.
+11. Schedule table: cancelled rows show the reason as muted text next to the badge.
+12. Uncheck-schedule on outlet form: still works, now stamps "Unscheduled from outlet form".
+
+**Dashboard drill-down:**
+13. Dashboard: click a stage bar → outlet list filtered to that stage with a chip; click chip's × to clear.
+14. Dashboard: click a rep's name → schedule pre-filtered to that rep.
+15. Dashboard: click a rep's overdue count → schedule pre-filtered to that rep + overdue.
+16. Filter states are in the URL and linkable/bookmarkable.
 
 ## Unit tests (`npm test`)
 
