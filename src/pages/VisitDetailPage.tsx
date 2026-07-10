@@ -356,15 +356,24 @@ export function VisitDetailPage() {
           <table className="table">
             <thead><tr><th>When</th><th>From</th><th>To</th><th>By</th><th>Visit</th></tr></thead>
             <tbody>
-              {history.map((h) => (
-                <tr key={h.id}>
-                  <td>{new Date(h.changedAt).toLocaleString()}</td>
-                  <td><StageBadge stage={h.fromStage} /></td>
-                  <td><StageBadge stage={h.toStage} /></td>
-                  <td>{h.changedBy}</td>
-                  <td className="muted">{h.visitId.slice(0, 8)}...</td>
-                </tr>
-              ))}
+              {history.map((h) => {
+                const sourceVisit = db.visits.find((v) => v.id === h.visitId);
+                return (
+                  <tr key={h.id}>
+                    <td>{new Date(h.changedAt).toLocaleString()}</td>
+                    <td><StageBadge stage={h.fromStage} /></td>
+                    <td><StageBadge stage={h.toStage} /></td>
+                    <td>{h.changedBy}</td>
+                    <td>
+                      {sourceVisit ? (
+                        <Link to={`/visits/${h.visitId}`}>{sourceVisit.visitDate}</Link>
+                      ) : (
+                        <span className="muted">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
