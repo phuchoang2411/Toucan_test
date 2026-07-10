@@ -100,7 +100,7 @@ export const visitService = {
   async addEvidence(visitId: string, input: { type: EvidenceType; name: string }): Promise<Evidence> {
     const visit = repository.getState().visits.find((v) => v.id === visitId);
     if (!visit) throw new Error('VISIT_NOT_FOUND');
-    if (visit.status === 'completed') throw new Error('VISIT_READ_ONLY');
+    if (visit.status !== 'planned') throw new Error('VISIT_READ_ONLY');
     const evidence: Evidence = {
       id: crypto.randomUUID(),
       visitId,
@@ -121,7 +121,7 @@ export const visitService = {
     const db = repository.getState();
     const visit = db.visits.find((v) => v.id === input.visitId);
     if (!visit) throw new Error('VISIT_NOT_FOUND');
-    if (visit.status === 'completed') throw new Error('VISIT_READ_ONLY');
+    if (visit.status !== 'planned') throw new Error('VISIT_READ_ONLY');
     if (!input.result.trim()) throw new Error('RESULT_REQUIRED');
 
     const outlet = db.outlets.find((o) => o.id === visit.outletId);
@@ -154,17 +154,24 @@ export const visitService = {
     return { ...completed, misaSyncStatus: 'Queued' };
   },
 
-  /** A4: cancelling the plan removes planned visits and their evidence; completed history is immutable. */
-  async deletePlannedForOutlet(outletId: string): Promise<void> {
-    repository.setState((cur) => {
-      const removed = new Set(
-        cur.visits.filter((v) => v.outletId === outletId && v.status === 'planned').map((v) => v.id),
-      );
-      return {
-        ...cur,
-        visits: cur.visits.filter((v) => !removed.has(v.id)),
-        evidence: cur.evidence.filter((e) => !removed.has(e.visitId)),
-      };
-    });
+  /** A4: cancel sets planned visits to status 'cancelled' (preserving evidence),
+   * then enqueues a MISA cancel per visit. Completed/cancelled history is immutable. */
+  async cancelPlannedForOutlet(outletId: string): Promise<void> {
+    const now = new Date().toISOString();
+    const toCancel = repository.getState().visits.filter(
+      (v) => v.outletId === outletId && v.status === 'planned',
+    );
+    if (toCancel.length === 0) return;
+    repository.setState((cur) => ({
+      ...cur,
+      visits: cur.visits.map((v) =>
+        v.outletId === outletId && v.status === 'planned'
+          ? { ...v, status: 'cancelled' as const, updatedAt: now }
+          : v,
+      ),
+    }));
+    for (const v of toCancel) {
+      syncService.cancel(v.id);
+    }
   },
 };

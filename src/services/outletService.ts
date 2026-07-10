@@ -27,7 +27,7 @@ export const outletService = {
   /**
    * Save an outlet. `schedule` carries the visit fields when "Schedule a visit"
    * is checked, or null when unchecked — which cancels remaining planned
-   * visits for the outlet (A4); completed visits are immutable history.
+   * visits for the outlet (A4); cancelled visits are kept as records.
    */
   async save(input: OutletInput, schedule: ScheduleFields | null): Promise<Outlet> {
     const now = new Date().toISOString();
@@ -49,7 +49,7 @@ export const outletService = {
     if (schedule) {
       await visitService.upsertPlanned({ outletId: outlet.id, salesRep: outlet.salesRep, ...schedule }); // BR1
     } else if (input.id) {
-      await visitService.deletePlannedForOutlet(outlet.id); // A4
+      await visitService.cancelPlannedForOutlet(outlet.id); // A4
     }
     return outlet;
   },

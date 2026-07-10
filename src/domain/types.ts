@@ -18,7 +18,7 @@ export type Tier = (typeof TIERS)[number];
 
 export const SALES_REPS = ['Phúc', 'Linh', 'Minh'] as const;
 
-export type VisitStatus = 'planned' | 'completed';
+export type VisitStatus = 'planned' | 'completed' | 'cancelled';
 export type SyncStatus = 'Queued' | 'Synced' | 'Failed';
 
 export const EVIDENCE_TYPES = ['photo', 'file', 'note'] as const;

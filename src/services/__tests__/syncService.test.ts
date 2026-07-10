@@ -69,3 +69,26 @@ describe('MockMisaAdapter', () => {
     expect(syncService.getStatus('v1')).toBe('Synced');
   });
 });
+
+describe('MockMisaAdapter.cancel', () => {
+  it('cancel delegates to enqueue (clears pending timer, sets Queued, resolves after 1.5s)', () => {
+    resetDB({ outlets: [makeOutlet()], visits: [makeVisit({ misaSyncStatus: 'Synced' })] });
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    syncService.cancel('v1');
+    expect(syncService.getStatus('v1')).toBe('Queued');
+    vi.advanceTimersByTime(1500);
+    expect(syncService.getStatus('v1')).toBe('Synced');
+  });
+
+  it('cancel on a pending enqueue clears the previous timer (no double-resolve)', () => {
+    resetDB({ outlets: [makeOutlet()], visits: [makeVisit({ misaSyncStatus: 'Synced' })] });
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    syncService.cancel('v1'); // timer A fires at t=1500
+    vi.advanceTimersByTime(500);
+    syncService.cancel('v1'); // clears timer A, timer B fires at t=2000
+    vi.advanceTimersByTime(1000); // old timer A deadline — still Queued
+    expect(syncService.getStatus('v1')).toBe('Queued');
+    vi.advanceTimersByTime(500); // timer B fires
+    expect(syncService.getStatus('v1')).toBe('Synced');
+  });
+});

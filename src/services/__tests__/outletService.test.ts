@@ -29,7 +29,7 @@ describe('outletService.save', () => {
     });
   });
 
-  it('editing with "schedule a visit" unchecked deletes planned visits, preserves completed (A4)', async () => {
+  it('editing with "schedule a visit" unchecked cancels planned visits, preserves completed (A4 rework)', async () => {
     resetDB({
       outlets: [makeOutlet()],
       visits: [
@@ -38,7 +38,10 @@ describe('outletService.save', () => {
       ],
     });
     await outletService.save({ id: 'o1', ...baseInput }, null);
-    expect(repository.getState().visits.map((v) => v.id)).toEqual(['v-done']);
+    const visits = repository.getState().visits;
+    expect(visits).toHaveLength(2);
+    expect(visits.find((v) => v.id === 'v-planned')!.status).toBe('cancelled');
+    expect(visits.find((v) => v.id === 'v-done')!.status).toBe('completed');
   });
 
   it('editing an outlet does not change currentStage (M3)', async () => {

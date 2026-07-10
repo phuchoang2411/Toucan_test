@@ -6,6 +6,11 @@ export interface SyncService {
   enqueue(visitId: string): void;
   retry(visitId: string): void;
   getStatus(visitId: string): SyncStatus;
+  /** Sends a MISA cancellation for the visit. Mock delegates to enqueue (same
+   * 1.5s resolution, same 80/20 roll). A real adapter would POST a cancel
+   * payload instead of an upsert. Retry on a cancelled+Failed row re-sends the
+   * cancel; resumePending re-enqueues an interrupted cancellation. */
+  cancel(visitId: string): void;
   /** Re-enqueue visits still `Queued` from a previous session (e.g. after reload). */
   resumePending(): void;
 }
@@ -34,6 +39,9 @@ class MockMisaAdapter implements SyncService {
       this.timers.delete(visitId);
     }, SYNC_DELAY_MS);
     this.timers.set(visitId, timer);
+  }
+  cancel(visitId: string): void {
+    this.enqueue(visitId);
   }
   retry(visitId: string): void {
     this.enqueue(visitId);

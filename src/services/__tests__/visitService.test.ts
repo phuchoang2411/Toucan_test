@@ -187,8 +187,23 @@ describe('visitService.complete (BR3–BR5)', () => {
   });
 });
 
-describe('visitService.deletePlannedForOutlet (A4, M2)', () => {
-  it('removes planned visits and their evidence; preserves completed visits and their evidence', async () => {
+describe('visitService.cancelPlannedForOutlet (A4 rework)', () => {
+  it('sets planned visits to cancelled, preserves evidence', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [
+        makeVisit({ id: 'v-planned', status: 'planned' }),
+      ],
+      evidence: [makeEvidence({ id: 'e-planned', visitId: 'v-planned' })],
+    });
+    await visitService.cancelPlannedForOutlet('o1');
+    const db = repository.getState();
+    expect(db.visits).toHaveLength(1);
+    expect(db.visits[0].status).toBe('cancelled');
+    expect(db.evidence).toHaveLength(1); // evidence preserved
+  });
+
+  it('completed visits are untouched by cancellation', async () => {
     resetDB({
       outlets: [makeOutlet()],
       visits: [
@@ -200,9 +215,56 @@ describe('visitService.deletePlannedForOutlet (A4, M2)', () => {
         makeEvidence({ id: 'e-done', visitId: 'v-done' }),
       ],
     });
-    await visitService.deletePlannedForOutlet('o1');
+    await visitService.cancelPlannedForOutlet('o1');
     const db = repository.getState();
-    expect(db.visits.map((v) => v.id)).toEqual(['v-done']);
-    expect(db.evidence.map((e) => e.id)).toEqual(['e-done']);
+    expect(db.visits.find((v) => v.id === 'v-done')!.status).toBe('completed');
+    expect(db.visits.find((v) => v.id === 'v-planned')!.status).toBe('cancelled');
+    expect(db.evidence).toHaveLength(2);
+  });
+
+  it('cancelled visits reject addEvidence with VISIT_READ_ONLY', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ status: 'cancelled' })],
+    });
+    await expect(
+      visitService.addEvidence('v1', { type: 'note', name: 'late' }),
+    ).rejects.toThrow('VISIT_READ_ONLY');
+  });
+
+  it('cancelled visits reject complete with VISIT_READ_ONLY', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ status: 'cancelled' })],
+    });
+    await expect(
+      visitService.complete({ visitId: 'v1', result: 'nope' }),
+    ).rejects.toThrow('VISIT_READ_ONLY');
+  });
+
+  it('upsertPlanned on same (rep, outlet, date) as a cancelled visit creates a new plan (dedup not blocked)', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ status: 'cancelled' })],
+    });
+    const { created } = await visitService.upsertPlanned({
+      outletId: 'o1', salesRep: 'Phúc', visitDate: '2026-07-10',
+      targetStage: 'ProposalSent', objective: 'New plan after cancel',
+    });
+    expect(created).toBe(true);
+    expect(repository.getState().visits).toHaveLength(2);
+  });
+
+  it('cancel re-queues MISA and resolves after 1.5s fake timers', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ misaSyncStatus: 'Synced' })],
+    });
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    await visitService.cancelPlannedForOutlet('o1');
+    expect(repository.getState().visits[0].misaSyncStatus).toBe('Queued');
+    expect(repository.getState().visits[0].status).toBe('cancelled');
+    vi.advanceTimersByTime(1500);
+    expect(['Synced', 'Failed']).toContain(repository.getState().visits[0].misaSyncStatus);
   });
 });
