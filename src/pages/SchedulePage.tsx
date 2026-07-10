@@ -7,7 +7,6 @@ import { SyncBadge } from '../components/SyncBadge';
 import { isOverdue } from '../domain/visits';
 import { localISODate, localWeekRange } from '../domain/dates';
 import type { KeyboardEvent } from 'react';
-import type { VisitStatus } from '../domain/types';
 
 export function SchedulePage() {
   const db = useDB();
