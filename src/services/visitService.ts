@@ -133,6 +133,22 @@ export const visitService = {
     return { ...cancelled, misaSyncStatus: 'Queued' };
   },
 
+  async reschedule(input: { visitId: string; newDate: string }): Promise<Visit> {
+    const visit = repository.getState().visits.find((v) => v.id === input.visitId);
+    if (!visit) throw new Error('VISIT_NOT_FOUND');
+    if (visit.status !== 'planned') throw new Error('VISIT_READ_ONLY');
+
+    await this.upsertPlanned({
+      outletId: visit.outletId,
+      salesRep: visit.salesRep,
+      visitDate: input.newDate,
+      targetStage: visit.targetStage,
+      objective: visit.objective,
+      existingVisitId: input.visitId,
+    });
+    return repository.getState().visits.find((v) => v.id === input.visitId)!;
+  },
+
   async listEvidence(visitId: string): Promise<Evidence[]> {
     return repository.getState().evidence.filter((e) => e.visitId === visitId);
   },

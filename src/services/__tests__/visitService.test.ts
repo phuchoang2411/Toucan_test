@@ -338,3 +338,67 @@ describe('visitService.cancelVisit', () => {
     expect(['Synced', 'Failed']).toContain(repository.getState().visits[0].misaSyncStatus);
   });
 });
+
+describe('visitService.reschedule', () => {
+  it('moves a planned visit to a new date, keeps same id and evidence', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-10', misaSyncStatus: 'Synced' })],
+      evidence: [makeEvidence({ id: 'e1', visitId: 'v1' })],
+    });
+    const visit = await visitService.reschedule({ visitId: 'v1', newDate: '2026-07-15' });
+    expect(visit.id).toBe('v1');
+    expect(visit.visitDate).toBe('2026-07-15');
+    const db = repository.getState();
+    expect(db.visits).toHaveLength(1);
+    expect(db.visits[0].visitDate).toBe('2026-07-15');
+    expect(db.visits[0].misaSyncStatus).toBe('Queued');
+    expect(db.evidence.map((e) => e.visitId)).toEqual(['v1']);
+  });
+
+  it('rejects reschedule onto a date with existing planned visit for same outlet+rep', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [
+        makeVisit({ id: 'v1', visitDate: '2026-07-10' }),
+        makeVisit({ id: 'v2', visitDate: '2026-07-20' }),
+      ],
+    });
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-20' }),
+    ).rejects.toThrow('DATE_ALREADY_PLANNED');
+  });
+
+  it('throws VISIT_READ_ONLY for completed visits', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', status: 'completed' })],
+    });
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-15' }),
+    ).rejects.toThrow('VISIT_READ_ONLY');
+  });
+
+  it('throws VISIT_READ_ONLY for cancelled visits', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', status: 'cancelled' })],
+    });
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-15' }),
+    ).rejects.toThrow('VISIT_READ_ONLY');
+  });
+
+  it('enqueues sync and resolves after 1.5s', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-10', misaSyncStatus: 'Synced' })],
+    });
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const visit = await visitService.reschedule({ visitId: 'v1', newDate: '2026-07-15' });
+    expect(visit.misaSyncStatus).toBe('Queued');
+    expect(repository.getState().visits[0].misaSyncStatus).toBe('Queued');
+    vi.advanceTimersByTime(1500);
+    expect(['Synced', 'Failed']).toContain(repository.getState().visits[0].misaSyncStatus);
+  });
+});
