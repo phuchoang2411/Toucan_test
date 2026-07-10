@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { EVIDENCE_TYPES, STAGES, STAGE_LABELS } from '../domain/types';
-import type { EvidenceType, Stage } from '../domain/types';
+import { CANCEL_REASONS, EVIDENCE_TYPES, STAGES, STAGE_LABELS } from '../domain/types';
+import type { CancelReason, EvidenceType, Stage } from '../domain/types';
 import { useDB } from '../hooks/useDB';
 import { visitService } from '../services/visitService';
 import { isOverdue } from '../domain/visits';
@@ -34,6 +34,16 @@ export function VisitDetailPage() {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [addingEvidence, setAddingEvidence] = useState(false);
+  const [showReschedule, setShowReschedule] = useState(false);
+  const [newDate, setNewDate] = useState('');
+  const [rescheduleError, setRescheduleError] = useState('');
+  const [rescheduling, setRescheduling] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState<string>(CANCEL_REASONS[0]);
+  const [cancelNote, setCancelNote] = useState('');
+  const [cancelError, setCancelError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
+  const [confirmCancel, setConfirmCancel] = useState(false);
 
   if (!visit || !outlet)
     return (
@@ -90,6 +100,43 @@ export function VisitDetailPage() {
     }
   }
 
+  async function handleReschedule() {
+    if (!newDate.trim()) return;
+    setRescheduleError('');
+    setRescheduling(true);
+    try {
+      await visitService.reschedule({ visitId: visit!.id, newDate });
+      fireToast(`Visit rescheduled to ${newDate}`);
+      setShowReschedule(false);
+      setNewDate('');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setRescheduleError(
+        message === 'DATE_ALREADY_PLANNED'
+          ? 'This outlet already has a planned visit on that date.'
+          : message,
+      );
+    }
+    setRescheduling(false);
+  }
+
+  async function handleCancel() {
+    if (confirmCancel) {
+      setCancelError('');
+      setCancelling(true);
+      try {
+        await visitService.cancelVisit(visit!.id, cancelReason as CancelReason, cancelNote || undefined);
+        fireToast('Visit cancelled');
+        setShowCancel(false);
+      } catch (e) {
+        setCancelError(e instanceof Error ? e.message : String(e));
+      }
+      setCancelling(false);
+    } else {
+      setConfirmCancel(true);
+    }
+  }
+
   return (
     <section>
       <header className="page-header">
@@ -111,6 +158,88 @@ export function VisitDetailPage() {
         </p>
         <p className="muted">Objective: {visit.objective}</p>
       </div>
+
+      {!readOnly && (
+        <div className="card">
+          <h2>Actions</h2>
+          <div className="field-row">
+            {!showReschedule && !showCancel && (
+              <>
+                <button className="btn" type="button" onClick={() => { setShowReschedule(true); setShowCancel(false); }}>
+                  Reschedule…
+                </button>
+                <button className="btn btn-danger" type="button" onClick={() => { setShowCancel(true); setShowReschedule(false); setConfirmCancel(false); }}>
+                  Cancel visit…
+                </button>
+              </>
+            )}
+          </div>
+
+          {showReschedule && (
+            <div className="field-group--conditional" style={{ marginTop: 12 }}>
+              <div className="field-row">
+                <div className="field">
+                  <label htmlFor="reschedule-date">New date</label>
+                  <input
+                    id="reschedule-date"
+                    type="date"
+                    value={newDate}
+                    onChange={(e) => setNewDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              {newDate && newDate < localISODate() && (
+                <p className="warning-text">⚠ Date is in the past — allowed but please verify.</p>
+              )}
+              {rescheduleError && <p className="error-text" role="alert">{rescheduleError}</p>}
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn btn-primary" type="button" onClick={handleReschedule} disabled={rescheduling || !newDate.trim()} aria-busy={rescheduling}>
+                  {rescheduling ? 'Rescheduling…' : 'Confirm reschedule'}
+                </button>
+                <button className="btn" type="button" onClick={() => { setShowReschedule(false); setNewDate(''); setRescheduleError(''); }}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showCancel && (
+            <div className="field-group--conditional" style={{ marginTop: 12 }}>
+              <div className="field">
+                <label htmlFor="cancel-reason">Reason *</label>
+                <select
+                  id="cancel-reason"
+                  value={cancelReason}
+                  onChange={(e) => { setCancelReason(e.target.value); setConfirmCancel(false); }}
+                >
+                  {CANCEL_REASONS.filter((r) => r !== 'Unscheduled from outlet form').map((r) => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="field">
+                <label htmlFor="cancel-note">Note (optional)</label>
+                <textarea
+                  id="cancel-note"
+                  rows={2}
+                  value={cancelNote}
+                  onChange={(e) => setCancelNote(e.target.value)}
+                  placeholder={cancelReason === 'Other' ? 'Describe why…' : 'Additional details (optional)'}
+                />
+              </div>
+              {cancelError && <p className="error-text" role="alert">{cancelError}</p>}
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="btn btn-danger" type="button" onClick={handleCancel} disabled={cancelling} aria-busy={cancelling}>
+                  {cancelling ? 'Cancelling…' : confirmCancel ? 'Click again to confirm' : 'Cancel visit'}
+                </button>
+                <button className="btn" type="button" onClick={() => { setShowCancel(false); setCancelNote(''); setCancelError(''); setConfirmCancel(false); }}>
+                  Back
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="card">
         <h2>Evidence ({evidence.length})</h2>
@@ -152,7 +281,10 @@ export function VisitDetailPage() {
           <h2>{visit.status === 'cancelled' ? 'Cancelled' : 'Result'}</h2>
           {visit.status === 'cancelled' ? (
             <>
-              <p className="muted">This visit was cancelled. Evidence is preserved.</p>
+              <p className="muted">This visit was cancelled.</p>
+              {visit.cancelReason && <p>Reason: <strong>{visit.cancelReason}</strong></p>}
+              {visit.cancelNote && <p className="muted">Note: {visit.cancelNote}</p>}
+              <p className="muted">Evidence is preserved.</p>
               <p className="muted">A cancellation was sent to MISA.</p>
             </>
           ) : (
