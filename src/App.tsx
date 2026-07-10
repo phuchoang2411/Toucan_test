@@ -8,10 +8,12 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { Toast } from './components/Toast';
 import { RouteFocus } from './components/RouteFocus';
 import { UserSwitcher } from './components/UserSwitcher';
+import { LocaleProvider } from './components/LocaleContext';
 
 export default function App() {
   return (
-    <div className="app">
+    <LocaleProvider>
+      <div className="app">
       <Toast />
       <RouteFocus />
       <nav className="topnav">
@@ -33,6 +35,7 @@ export default function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>
-    </div>
+      </div>
+    </LocaleProvider>
   );
 }
