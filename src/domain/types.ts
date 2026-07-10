@@ -19,6 +19,8 @@ export type Tier = (typeof TIERS)[number];
 export const SALES_REPS = ['Phúc', 'Linh', 'Minh'] as const;
 
 export type VisitStatus = 'planned' | 'completed' | 'cancelled';
+export const CANCEL_REASONS = ['Customer postponed', 'No-show', 'Planned by mistake', 'Unscheduled from outlet form', 'Other'] as const;
+export type CancelReason = (typeof CANCEL_REASONS)[number];
 export type SyncStatus = 'Queued' | 'Synced' | 'Failed';
 
 export const EVIDENCE_TYPES = ['photo', 'file', 'note'] as const;
@@ -50,6 +52,8 @@ export interface Visit {
   status: VisitStatus;
   result?: string;
   resultNotes?: string;
+  cancelReason?: CancelReason;
+  cancelNote?: string;
   misaSyncStatus: SyncStatus;
   createdAt: string;
   updatedAt: string;
