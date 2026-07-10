@@ -9,6 +9,7 @@ import { Toast } from './components/Toast';
 import { RouteFocus } from './components/RouteFocus';
 import { UserSwitcher } from './components/UserSwitcher';
 import { LocaleProvider } from './components/LocaleContext';
+import { t } from './strings';
 
 export default function App() {
   return (
@@ -18,9 +19,9 @@ export default function App() {
       <RouteFocus />
       <nav className="topnav">
         <span className="brand">Magnolia Sales</span>
-        <NavLink to="/outlets">Outlets</NavLink>
-        <NavLink to="/schedule">Working Schedule</NavLink>
-        <NavLink to="/dashboard">Dashboard</NavLink>
+        <NavLink to="/outlets">{t('nav_outlets')}</NavLink>
+        <NavLink to="/schedule">{t('nav_working_schedule')}</NavLink>
+        <NavLink to="/dashboard">{t('nav_dashboard')}</NavLink>
         <UserSwitcher />
       </nav>
       <main className="content">
