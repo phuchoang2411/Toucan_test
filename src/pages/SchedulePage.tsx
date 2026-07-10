@@ -2,6 +2,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDB } from '../hooks/useDB';
 import { StageBadge } from '../components/StageBadge';
 import { SyncBadge } from '../components/SyncBadge';
+import { isOverdue } from '../domain/visits';
+import { localISODate } from '../domain/dates';
 import type { KeyboardEvent } from 'react';
 
 export function SchedulePage() {
@@ -57,7 +59,12 @@ export function SchedulePage() {
                     <td><StageBadge stage={v.targetStage} /></td>
                     <td>{v.objective}</td>
                     <td><SyncBadge visit={v} /></td>
-                    <td><span className={`badge badge--${v.status}`}>{v.status}</span></td>
+                    <td>
+                      <span className={`badge badge--${v.status}`}>{v.status}</span>
+                      {isOverdue(v.status, v.visitDate, localISODate()) && (
+                        <span className="badge badge--overdue" style={{ marginLeft: 4 }}>overdue</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

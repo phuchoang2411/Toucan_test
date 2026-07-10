@@ -4,6 +4,8 @@ import { EVIDENCE_TYPES, STAGES, STAGE_LABELS } from '../domain/types';
 import type { EvidenceType, Stage } from '../domain/types';
 import { useDB } from '../hooks/useDB';
 import { visitService } from '../services/visitService';
+import { isOverdue } from '../domain/visits';
+import { localISODate } from '../domain/dates';
 import { StageBadge } from '../components/StageBadge';
 import { SyncBadge } from '../components/SyncBadge';
 import { fireToast } from '../components/Toast';
@@ -97,7 +99,11 @@ export function VisitDetailPage() {
       </header>
 
       <div className="card">
-        <p><strong>{visit.visitDate}</strong> · {visit.salesRep} · {outlet.address}</p>
+        <p><strong>{visit.visitDate}</strong>
+          {isOverdue(visit.status, visit.visitDate, localISODate()) && (
+            <span className="badge badge--overdue" style={{ marginLeft: 8 }}>overdue</span>
+          )}
+          {' · '}{visit.salesRep} · {outlet.address}</p>
         <p>
           Stage at planning: <StageBadge stage={visit.currentStageSnapshot} />{' '}
           → target: <StageBadge stage={visit.targetStage} />{' '}
