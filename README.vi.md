@@ -77,6 +77,12 @@ prototype gọi tới.
    lịch hoặc chi tiết buổi ghé thăm; nó sẽ chạy lại lần chuyển giai đoạn (tỷ lệ fail 20% mỗi
    lần sync, nên lưu lại để thử lại nếu chưa gặp trường hợp này).
 6. **Lưu trữ (Persistence)** — reload trang; trạng thái được khôi phục từ `localStorage`.
+7. **Bộ lọc lịch** — lọc lịch làm việc theo rep (Phúc/Linh/Minh), trạng thái
+   (planned/completed/cancelled), hoặc bộ lọc ngày (hôm nay/tuần này/quá hạn). Nút xóa bộ lọc
+   khôi phục danh sách đầy đủ.
+8. **Dashboard** (`/dashboard`) — xem biểu đồ thanh ngang số outlet theo giai đoạn, bảng phân
+   tích theo từng rep (outlets/planned/overdue/completed), và danh sách buổi ghé thăm sắp tới
+   trong tuần kèm liên kết đến từng buổi ghé thăm.
 
 ## Unit test (`npm test`)
 
@@ -88,8 +94,11 @@ Các test 1–5 ở spec §10, được cài đặt theo TDD trong tầng servic
 3. Cổng bằng chứng: đổi giai đoạn với 0 evidence → bị từ chối; với 1 evidence →
    `StageHistory` được thêm vào, giai đoạn outlet được cập nhật nguyên tử (một `setState`).
 4. Hoàn tất buổi ghé thăm không đổi giai đoạn và không có evidence → được cho phép.
-5. Bỏ chọn "lên lịch ghé thăm": buổi ghé thăm planned bị xóa; buổi ghé thăm completed được
-   giữ lại.
+5. Bỏ chọn "lên lịch ghé thăm": các buổi ghé thăm planned được đặt thành `cancelled`, evidence
+   được giữ lại; các buổi ghé thăm completed không bị ảnh hưởng.
+6. Các buổi ghé thăm cancelled từ chối addEvidence/complete với `VISIT_READ_ONLY`.
+7. `cancel()` trên sync service ủy quyền cho enqueue (cùng hành vi timer/roll).
+8. `isOverdue`: chỉ các buổi ghé thăm `planned` có ngày trong quá khứ mới bị coi là quá hạn.
 
 ## Giả định & quyết định
 
@@ -107,8 +116,9 @@ còn mở của spec:
 - **A3 — Giai đoạn thực tế có thể khác target.** Target stage là một kỳ vọng được ghi nhận
   tại thời điểm lên lịch; rep chọn giai đoạn mới thực tế khi hoàn tất (mặc định là target
   trên UI).
-- **A4 — Bỏ chọn "lên lịch ghé thăm"** sẽ xóa các buổi ghé thăm planned còn lại của outlet;
-  các buổi ghé thăm completed là bất biến và được giữ lại.
+- **A4 — Bỏ chọn "lên lịch ghé thăm"** sẽ hủy các buổi ghé thăm planned còn lại của outlet
+  (`status: 'cancelled'`), giữ lại chúng và evidence làm bản ghi, và đưa lệnh hủy MISA vào
+  hàng đợi cho mỗi buổi ghé thăm; các buổi ghé thăm completed vẫn không bị ảnh hưởng.
 - **A5 — Ngày trong quá khứ được phép kèm cảnh báo**, không bị chặn (đôi khi rep ghi nhận
   buổi ghé thăm sau khi đã diễn ra).
 - **A6 — Outlet ở giai đoạn cuối vẫn có thể được ghé thăm** (Won vẫn cần chăm sóc; Lost có
@@ -119,6 +129,13 @@ còn mở của spec:
 - **A9 — Prototype một người dùng** (không auth; rep là một lựa chọn từ danh sách đã seed).
 - **A10 — In-memory + `localStorage`** đứng sau một tầng service bất đồng bộ mô phỏng một
   REST API, để việc thay thế bằng backend thật là một thay đổi mang tính cơ học.
+- **Các buổi ghé thăm bị hủy (cancelled)** được giữ lại làm bản ghi kèm evidence. Trạng thái
+  hủy là cuối cùng; hãy lên lịch buổi ghé thăm mới để lên kế hoạch lại cho outlet.
+- **Phát hiện quá hạn (overdue)** sử dụng ngày dương lịch địa phương (`localISODate()`). Ngày
+  của buổi ghé thăm được so sánh từ vựng (YYYY-MM-DD). Chỉ các buổi ghé thăm `planned` có ngày
+  trong quá khứ mới bị coi là quá hạn.
+- **Xóa localStorage** (`localStorage.removeItem('magnolia-db-v1')`) để nhận dữ liệu seed mới
+  với buổi ghé thăm bị hủy, nếu nâng cấp từ phiên bản cũ.
 
 **Quyết định brainstorming (khép lại các khoảng trống mở của spec):**
 
@@ -144,6 +161,6 @@ còn mở của spec:
   id, cùng evidence, MISA xếp lại `Queued`) thay vì để lại một kế hoạch mồ côi dưới tên rep
   cũ. Nếu rep mới đã có sẵn một buổi ghé thăm planned đúng vào ngày đó, việc chuyển bị từ
   chối (`DATE_ALREADY_PLANNED`) thay vì âm thầm gộp hai dòng.
-- **Hủy:** bỏ chọn "lên lịch ghé thăm" sẽ xóa **toàn bộ** các buổi ghé thăm planned của
-  outlet cùng evidence đính kèm (A4); các buổi ghé thăm completed và evidence của chúng
-  được giữ lại như lịch sử bất biến.
+- **Hủy:** bỏ chọn "lên lịch ghé thăm" sẽ đặt **toàn bộ** các buổi ghé thăm planned của
+  outlet thành `cancelled`, giữ lại chúng và evidence làm bản ghi (A4); lệnh hủy MISA được
+  đưa vào hàng đợi cho mỗi buổi ghé thăm; các buổi ghé thăm completed vẫn không bị ảnh hưởng.

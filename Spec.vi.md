@@ -59,8 +59,10 @@ Yêu cầu đề bài không định nghĩa quy tắc chuyển giai đoạn (ví
 Target stage được ghi nhận tại thời điểm lên lịch như một *kỳ vọng*. Khi hoàn tất buổi ghé thăm, rep tự do chọn giai đoạn mới thực tế (mặc định là target stage trên UI). Kết quả thực tế của buổi ghé thăm, chứ không phải kế hoạch, mới là yếu tố quyết định.
 
 ### A4. Sửa outlet và bỏ chọn "lên lịch ghé thăm"
-- **Tất cả** các buổi ghé thăm còn đang `planned` của outlet sẽ bị xóa, kèm theo evidence đính kèm của chúng (kế hoạch đã bị hủy). Form sẽ cảnh báo trước khi lưu, liệt kê các ngày bị ảnh hưởng.
-- Các buổi ghé thăm đã `completed` được giữ lại (lịch sử là bất biến).
+- **Tất cả** các buổi ghé thăm còn đang `planned` của outlet sẽ được **hủy** (`status: 'cancelled'`) tại chỗ — các buổi ghé thăm và evidence của chúng được giữ lại làm bản ghi kiểm toán (audit records).
+- Một lệnh hủy MISA được đưa vào hàng đợi cho mỗi buổi ghé thăm qua `syncService.cancel(visitId)`.
+- Các buổi ghé thăm đã `completed` vẫn không bị ảnh hưởng. Trạng thái `cancelled` là trạng thái cuối (terminal) — không thể kích hoạt lại; hãy lên lịch buổi ghé thăm mới để thay thế.
+- Form sẽ cảnh báo trước khi lưu, liệt kê các ngày bị ảnh hưởng.
 
 ### A5. Kiểm tra ngày ghé thăm
 Ngày trong quá khứ được cho phép **kèm cảnh báo**, không bị chặn — đôi khi rep ghi nhận buổi ghé thăm sau khi đã diễn ra. Việc chặn sẽ buộc họ phải nhập ngày tương lai giả.
@@ -107,13 +109,15 @@ Visit                          -- một dòng = một dòng trong Lịch Làm Vi
   currentStageSnapshot  enum   giai đoạn outlet tại thời điểm lên lịch (A7)
   targetStage           enum   giai đoạn kỳ vọng sau buổi ghé thăm
   objective             string mục tiêu buổi ghé thăm / bước tiếp theo
-  status                enum   planned | completed
+  status                enum   planned | completed | cancelled
   result                string tóm tắt kết quả (ghi khi hoàn tất)
   resultNotes           string tùy chọn
   misaSyncStatus        enum   Queued | Synced | Failed
   createdAt, updatedAt
 
   LOGICAL UNIQUE: (salesRep, outletId, visitDate) WHERE status = 'planned'   (A1)
+
+  *Cancelled là trạng thái cuối; để lên lịch lại, hãy tạo buổi ghé thăm mới.*
 
 Evidence
   id          string (uuid)
@@ -159,6 +163,7 @@ Ports & Adapters. Logic nghiệp vụ phụ thuộc vào một interface, không
 interface SyncService {
   enqueue(visitId: string): void
   retry(visitId: string): void
+  cancel(visitId: string): void
   getStatus(visitId: string): 'Queued' | 'Synced' | 'Failed'
 }
 
@@ -166,6 +171,7 @@ interface SyncService {
 MockMisaAdapter implements SyncService
   - enqueue: đặt Queued, sau 1.5s resolve thành Synced (80%) hoặc Failed (20%)
   - retry: chạy lại cùng lần chuyển giai đoạn từ Failed
+  - cancel: ủy quyền cho enqueue (cùng hành vi 1.5s/80/20); adapter thật sẽ POST payload hủy thay vì upsert
 ```
 
 Việc thay thế bằng API MISA thật sau này chỉ cần viết một adapter mới. Không có thay đổi nào ở logic outlet/visit/stage. UI hiển thị badge trạng thái đồng bộ trên mỗi dòng lịch và nút Retry khi ở trạng thái `Failed`.
@@ -190,8 +196,9 @@ Hệ quả: việc thay thế repository bằng các lệnh gọi `fetch()` tớ
 
 1. **Danh sách outlet** — bảng liệt kê outlet (tên, kênh, tier, rep, badge giai đoạn), + "Outlet mới".
 2. **Form outlet (tạo/sửa)** — tất cả các trường ở §4; checkbox "Lên lịch ghé thăm?" hiển thị có điều kiện ngày ghé thăm, target stage, mục tiêu buổi ghé thăm. Lỗi validation hiển thị inline khi lưu.
-3. **Lịch Làm Việc** — bảng: ngày, rep, outlet, địa chỉ, giai đoạn hiện tại (snapshot), target stage, mục tiêu, badge đồng bộ MISA, trạng thái. Nhấp vào dòng → chi tiết buổi ghé thăm.
+3. **Lịch Làm Việc** — bảng: ngày, rep, outlet, địa chỉ, giai đoạn hiện tại (snapshot), target stage, mục tiêu, badge đồng bộ MISA, trạng thái. Nhấp vào dòng → chi tiết buổi ghé thăm. **Bộ lọc (Filters)**: dropdown rep, dropdown trạng thái (planned/completed/cancelled), bộ lọc ngày (all/today/this week/overdue). Nút xóa bộ lọc (Clear filters).
 4. **Chi tiết buổi ghé thăm** — ghi nhận kết quả + ghi chú, thêm evidence mock (loại + tên), bật/tắt "đổi giai đoạn", chọn giai đoạn mới (mặc định = target). Lưu sẽ thực thi cổng bằng chứng (evidence gate). Hiển thị lịch sử giai đoạn của outlet ở phía dưới.
+5. **Dashboard** (`/dashboard`) — biểu đồ thanh ngang (horizontal bar chart) số outlet theo giai đoạn, bảng phân tích theo từng rep (outlets/planned/overdue/completed), danh sách buổi ghé thăm sắp diễn ra trong tuần.
 
 **Tóm tắt validation:**
 - Outlet: tên, địa chỉ, kênh, tier, salesRep, giai đoạn → bắt buộc.
@@ -210,7 +217,7 @@ Sales reps: `Phúc`, `Linh`, `Minh`.
 | Hoa Nắng Bakery | Bakery | C | Linh | Raw Lead |
 | Maison Saigon Bistro | Restaurant | A | Minh | Customer Sampling |
 
-Kèm theo một buổi ghé thăm đã lên lịch (planned) và một buổi ghé thăm đã hoàn tất kèm evidence được seed sẵn, để màn hình lịch và lịch sử có thể được trình diễn ngay lập tức.
+Kèm theo một buổi ghé thăm planned, một buổi ghé thăm completed kèm evidence, và một buổi ghé thăm cancelled (`visit-cancelled-1`) tại Hoa Nắng Bakery kèm một evidence dạng note được giữ lại, để màn hình lịch và lịch sử có thể được trình diễn ngay với tất cả trạng thái.
 
 ---
 
@@ -221,7 +228,7 @@ Kèm theo một buổi ghé thăm đã lên lịch (planned) và một buổi gh
 2. Upsert: cùng khóa nhưng buổi ghé thăm đã completed → tạo buổi ghé thăm thứ hai.
 3. Cổng bằng chứng: đổi giai đoạn với 0 evidence → bị từ chối; với 1 evidence → được chấp nhận, thêm dòng StageHistory, cập nhật giai đoạn outlet.
 4. Hoàn tất buổi ghé thăm không đổi giai đoạn và không có evidence → được cho phép.
-5. Bỏ chọn "lên lịch ghé thăm": buổi ghé thăm planned bị xóa; buổi ghé thăm completed được giữ lại.
+5. Bỏ chọn "lên lịch ghé thăm": các buổi ghé thăm planned được đặt thành `cancelled`, evidence được giữ lại; các buổi ghé thăm completed không bị ảnh hưởng.
 
 **Kịch bản demo thủ công:**
 1. Tạo outlet kèm buổi ghé thăm → dòng xuất hiện trong lịch, sync chuyển Queued → Synced/Failed.
@@ -229,6 +236,8 @@ Kèm theo một buổi ghé thăm đã lên lịch (planned) và một buổi gh
 3. Mở buổi ghé thăm → thử đổi giai đoạn khi chưa có evidence → bị chặn với thông báo rõ ràng.
 4. Thêm evidence → đổi giai đoạn → giai đoạn outlet được cập nhật, mục lịch sử hiển thị.
 5. Retry một lần sync bị Failed.
+6. **Bộ lọc lịch (Schedule filters)** — lọc theo rep, trạng thái, ngày (hôm nay/tuần này/quá hạn); nút xóa lọc khôi phục danh sách đầy đủ.
+7. **Dashboard** (`/dashboard`) — xem biểu đồ thanh outlet theo giai đoạn, bảng phân tích theo rep, danh sách buổi ghé thăm sắp tới trong tuần.
 
 ---
 
@@ -238,6 +247,11 @@ Tích hợp MISA thật, upload file thật, xác thực/phân quyền, đa tena
 
 **Hạn chế đã biết & câu hỏi mở cho chủ sở hữu nghiệp vụ:**
 
-- **Việc hủy lịch không được truyền sang MISA.** Hủy kế hoạch (A4) xóa buổi ghé thăm ở phía local, nhưng port `SyncService` (§6) không có thao tác `cancel` — hệ thống bên ngoài sẽ vẫn giữ một dòng cho buổi ghé thăm không còn tồn tại. Tích hợp thật phải trả lời được: *các dòng lịch bị xóa/hủy được đối soát với MISA như thế nào?*
-- **Không có trạng thái `cancelled` cho buổi ghé thăm.** Kế hoạch bị hủy sẽ bị xóa cứng kèm evidence thay vì được giữ lại làm bản ghi. Một trạng thái `cancelled` sẽ bảo toàn dấu vết kiểm toán, cho phép hủy từng buổi ghé thăm riêng lẻ (hiện tại bỏ chọn checkbox sẽ hủy toàn bộ kế hoạch của outlet), và cung cấp cho MISA một tín hiệu hủy rõ ràng.
-- **Không xử lý trường hợp lỡ hẹn/không diễn ra (no-show).** Một buổi ghé thăm planned đã qua ngày vẫn giữ trạng thái `planned` vô thời hạn; không có trạng thái quá hạn hay quy trình cho các buổi ghé thăm không diễn ra.
+1. ~~Việc hủy lịch không được truyền sang MISA~~ — đã giải quyết: `cancel()` trên port sync đưa thông điệp hủy vào hàng đợi cho mỗi buổi ghé thăm bị hủy.
+2. ~~Không có trạng thái `cancelled` cho buổi ghé thăm~~ — đã giải quyết: các buổi ghé thăm planned được hủy tại chỗ, giữ lại cùng evidence làm bản ghi kiểm toán.
+3. **Quá hạn một phần (Partial overdue)** — phát hiện quá hạn được tính toán dẫn xuất (không thay đổi mô hình dữ liệu), nhưng không có "danh sách quá hạn" chuyên dụng ngoài bộ lọc trong lịch, và không có tự động chuyển trạng thái.
+4. **Không có hủy từng buổi ghé thăm riêng lẻ** — chỉ hủy được qua form outlet (bỏ chọn "Schedule a visit").
+5. **Không có kích hoạt lại** — cancelled là trạng thái cuối; hãy lên lịch buổi ghé thăm mới.
+6. **Mock retry không phân biệt được payload** — mock `cancel` ủy quyền cho `enqueue`; adapter thật sẽ gửi payload hủy MISA khác.
+7. **Không có quy trình no-show** — không có trạng thái tự động cho các buổi ghé thăm không diễn ra.
+8. **Báo cáo vẫn còn tối thiểu** — dashboard chỉ là một ảnh chụp nhanh một trang.
