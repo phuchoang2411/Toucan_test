@@ -11,6 +11,7 @@ import { localISODate } from '../domain/dates';
 import { StageBadge } from '../components/StageBadge';
 import { SyncBadge } from '../components/SyncBadge';
 import { fireToast } from '../components/Toast';
+import { t, VISIT_STATUS_LABELS } from '../strings';
 
 export function VisitDetailPage() {
   const { id } = useParams();
@@ -55,11 +56,11 @@ export function VisitDetailPage() {
     return (
       <section>
         <header className="page-header">
-          <h1>Visit not found</h1>
+          <h1>{t('visit_not_found')}</h1>
         </header>
         <div className="empty-state">
-          <p>No visit with ID "{id}" exists.</p>
-          <Link className="btn btn-primary" to="/schedule">Back to Schedule</Link>
+          <p>{t('no_visit_with_id', { id: id! })}</p>
+          <Link className="btn btn-primary" to="/schedule">{t('back_to_schedule')}</Link>
         </div>
       </section>
     );
@@ -74,11 +75,11 @@ export function VisitDetailPage() {
     setAddingEvidence(true);
     try {
       await visitService.addEvidence(visit!.id, { type: evType, name: evName.trim() });
-      fireToast('Evidence added');
+      fireToast(t('evidence_added'));
       setEvName('');
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      setEvError(message === 'FORBIDDEN' ? 'You are not authorized to add evidence to this visit.' : 'Failed to add evidence');
+      setEvError(message === 'FORBIDDEN' ? t('not_authorized_evidence') : t('failed_add_evidence'));
     }
     setAddingEvidence(false);
   }
@@ -94,19 +95,19 @@ export function VisitDetailPage() {
         newStage: changeStage ? newStage : null,
         dateMismatchNote: dateMismatchNote.trim() || undefined,
       });
-      fireToast('Visit completed');
+      fireToast(t('visit_completed'));
       navigate('/schedule');
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setError(
         message === 'EVIDENCE_REQUIRED'
-          ? 'Stage change blocked: attach at least one piece of evidence first (BR3).'
+          ? t('stage_change_blocked')
           : message === 'RESULT_REQUIRED'
-            ? 'Result is required to complete a visit.'
+            ? t('result_required')
             : message === 'DATE_MISMATCH_NOTE_REQUIRED'
-              ? 'This visit is being completed on a different day than scheduled — please explain why (BR7).'
+              ? t('date_mismatch_required')
               : message === 'FORBIDDEN'
-                ? 'You are not authorized to complete this visit.'
+                ? t('not_authorized_complete')
                 : message,
       );
       setSaving(false);
@@ -119,16 +120,16 @@ export function VisitDetailPage() {
     setRescheduling(true);
     try {
       await visitService.reschedule({ visitId: visit!.id, newDate });
-      fireToast(`Visit rescheduled to ${newDate}`);
+      fireToast(t('visit_rescheduled', { date: newDate }));
       setShowReschedule(false);
       setNewDate('');
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setRescheduleError(
         message === 'DATE_ALREADY_PLANNED'
-          ? 'This outlet already has a planned visit on that date.'
+          ? t('date_already_planned_visit')
           : message === 'FORBIDDEN'
-            ? 'You are not authorized to reschedule this visit.'
+            ? t('not_authorized_reschedule')
             : message,
       );
     }
@@ -141,11 +142,11 @@ export function VisitDetailPage() {
       setCancelling(true);
       try {
         await visitService.cancelVisit(visit!.id, cancelReason as CancelReason, cancelNote || undefined);
-        fireToast('Visit cancelled');
+        fireToast(t('visit_cancelled'));
         setShowCancel(false);
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e);
-        setCancelError(message === 'FORBIDDEN' ? 'You are not authorized to cancel this visit.' : message);
+        setCancelError(message === 'FORBIDDEN' ? t('not_authorized_cancel') : message);
       }
       setCancelling(false);
     } else {
@@ -156,36 +157,36 @@ export function VisitDetailPage() {
   return (
     <section>
       <header className="page-header">
-        <h1>Visit — {outlet.name}</h1>
-        <span className={`badge badge--${visit.status}`}>{visit.status}</span>
+        <h1>{t('visit_title', { name: outlet.name })}</h1>
+        <span className={`badge badge--${visit.status}`}>{VISIT_STATUS_LABELS[visit.status]?.vi ?? visit.status}</span>
         <SyncBadge visit={visit} />
       </header>
 
       <div className="card">
         <p><strong>{visit.visitDate}</strong>
           {isOverdue(visit.status, visit.visitDate, localISODate()) && (
-            <span className="badge badge--overdue" style={{ marginLeft: 8 }}>overdue</span>
+            <span className="badge badge--overdue" style={{ marginLeft: 8 }}>{t('overdue_badge')}</span>
           )}
           {' · '}{visit.salesRep} · {outlet.address}</p>
         <p>
-          Stage at planning: <StageBadge stage={visit.currentStageSnapshot} />{' '}
-          → target: <StageBadge stage={visit.targetStage} />{' '}
-          · outlet now: <StageBadge stage={outlet.currentStage} />
+          {t('stage_at_planning')} <StageBadge stage={visit.currentStageSnapshot} />{' '}
+          {t('target_arrow')} <StageBadge stage={visit.targetStage} />{' '}
+          {t('outlet_now')} <StageBadge stage={outlet.currentStage} />
         </p>
-        <p className="muted">Objective: {visit.objective}</p>
+        <p className="muted">{t('objective_label_detail')} {visit.objective}</p>
       </div>
 
       {!readOnly && (
         <div className="card">
-          <h2>Actions</h2>
+          <h2>{t('actions_title')}</h2>
           <div className="field-row">
             {!showReschedule && !showCancel && (
               <>
                 <button className="btn" type="button" onClick={() => { setShowReschedule(true); setShowCancel(false); }}>
-                  Reschedule…
+                  {t('reschedule_button')}
                 </button>
                 <button className="btn btn-danger" type="button" onClick={() => { setShowCancel(true); setShowReschedule(false); setConfirmCancel(false); }}>
-                  Cancel visit…
+                  {t('cancel_visit_button')}
                 </button>
               </>
             )}
@@ -195,7 +196,7 @@ export function VisitDetailPage() {
             <div className="field-group--conditional" style={{ marginTop: 12 }}>
               <div className="field-row">
                 <div className="field">
-                  <label htmlFor="reschedule-date">New date</label>
+                  <label htmlFor="reschedule-date">{t('new_date_label')}</label>
                   <input
                     id="reschedule-date"
                     type="date"
@@ -205,15 +206,15 @@ export function VisitDetailPage() {
                 </div>
               </div>
               {newDate && newDate < localISODate() && (
-                <p className="warning-text">⚠ Date is in the past — allowed but please verify.</p>
+                <p className="warning-text">{t('date_in_past_warning')}</p>
               )}
               {rescheduleError && <p className="error-text" role="alert">{rescheduleError}</p>}
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button className="btn btn-primary" type="button" onClick={handleReschedule} disabled={rescheduling || !newDate.trim()} aria-busy={rescheduling}>
-                  {rescheduling ? 'Rescheduling…' : 'Confirm reschedule'}
+                  {rescheduling ? t('rescheduling') : t('confirm_reschedule')}
                 </button>
                 <button className="btn" type="button" onClick={() => { setShowReschedule(false); setNewDate(''); setRescheduleError(''); }}>
-                  Cancel
+                  {t('cancel_dismiss')}
                 </button>
               </div>
             </div>
@@ -222,7 +223,7 @@ export function VisitDetailPage() {
           {showCancel && (
             <div className="field-group--conditional" style={{ marginTop: 12 }}>
               <div className="field">
-                <label htmlFor="cancel-reason">Reason *</label>
+                <label htmlFor="cancel-reason">{t('reason_label')}</label>
                 <select
                   id="cancel-reason"
                   value={cancelReason}
@@ -234,22 +235,22 @@ export function VisitDetailPage() {
                 </select>
               </div>
               <div className="field">
-                <label htmlFor="cancel-note">Note (optional)</label>
+                <label htmlFor="cancel-note">{t('note_optional')}</label>
                 <textarea
                   id="cancel-note"
                   rows={2}
                   value={cancelNote}
                   onChange={(e) => setCancelNote(e.target.value)}
-                  placeholder={cancelReason === 'Other' ? 'Describe why…' : 'Additional details (optional)'}
+                  placeholder={cancelReason === 'Other' ? t('describe_why_placeholder') : t('additional_details_placeholder')}
                 />
               </div>
               {cancelError && <p className="error-text" role="alert">{cancelError}</p>}
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button className="btn btn-danger" type="button" onClick={handleCancel} disabled={cancelling} aria-busy={cancelling}>
-                  {cancelling ? 'Cancelling…' : confirmCancel ? 'Click again to confirm' : 'Cancel visit'}
+                  {cancelling ? t('cancelling') : confirmCancel ? t('click_again_confirm') : t('cancel_visit_destructive')}
                 </button>
                 <button className="btn" type="button" onClick={() => { setShowCancel(false); setCancelNote(''); setCancelError(''); setConfirmCancel(false); }}>
-                  Back
+                  {t('back_button')}
                 </button>
               </div>
             </div>
@@ -258,25 +259,25 @@ export function VisitDetailPage() {
       )}
 
       <div className="card">
-        <h2>Evidence ({evidence.length})</h2>
-        {evidence.length === 0 && <p className="muted">No evidence yet.</p>}
+        <h2>{t('evidence_count', { count: evidence.length })}</h2>
+        {evidence.length === 0 && <p className="muted">{t('no_evidence_yet')}</p>}
         <ul>
           {evidence.map((e) => <li key={e.id}>[{e.type}] {e.name}</li>)}
         </ul>
         {!readOnly && (
           <div className="field-row">
             <div className="field">
-              <label htmlFor="ev-type">Type</label>
+              <label htmlFor="ev-type">{t('type_label')}</label>
               <select id="ev-type" value={evType} onChange={(e) => setEvType(e.target.value as EvidenceType)}>
                 {EVIDENCE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
               </select>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
               <div className="field" style={{ flex: 1 }}>
-                <label htmlFor="ev-name">Filename or note</label>
+                <label htmlFor="ev-name">{t('filename_or_note_label')}</label>
                 <input
                   id="ev-name"
-                  placeholder="filename or note text (mock)"
+                  placeholder={t('filename_placeholder')}
                   value={evName}
                   onChange={(e) => setEvName(e.target.value)}
                   aria-invalid={!!evError}
@@ -285,7 +286,7 @@ export function VisitDetailPage() {
                 {evError && <span className="error-text" id="ev-error" role="alert">{evError}</span>}
               </div>
               <button type="button" className="btn" onClick={addEvidence} disabled={addingEvidence} aria-busy={addingEvidence}>
-                {addingEvidence ? 'Adding…' : 'Add'}
+                {addingEvidence ? t('adding') : t('add_button')}
               </button>
             </div>
           </div>
@@ -294,14 +295,14 @@ export function VisitDetailPage() {
 
       {readOnly ? (
         <div className="card">
-          <h2>{visit.status === 'cancelled' ? 'Cancelled' : 'Result'}</h2>
+          <h2>{visit.status === 'cancelled' ? t('cancelled_title') : t('result_title')}</h2>
           {visit.status === 'cancelled' ? (
             <>
-              <p className="muted">This visit was cancelled.</p>
-              {visit.cancelReason && <p>Reason: <strong>{visit.cancelReason}</strong></p>}
-              {visit.cancelNote && <p className="muted">Note: {visit.cancelNote}</p>}
-              <p className="muted">Evidence is preserved.</p>
-              <p className="muted">A cancellation was sent to MISA.</p>
+              <p className="muted">{t('visit_was_cancelled')}</p>
+              {visit.cancelReason && <p>{t('reason_display', { reason: visit.cancelReason! })}</p>}
+              {visit.cancelNote && <p className="muted">{t('note_display', { note: visit.cancelNote })}</p>}
+              <p className="muted">{t('evidence_preserved')}</p>
+              <p className="muted">{t('cancellation_sent_misa')}</p>
             </>
           ) : (
             <>
@@ -310,19 +311,19 @@ export function VisitDetailPage() {
               {visit.dateMismatchNote && (
                 <p className="warning-text">⚠ Completed on a different day than scheduled ({visit.visitDate}) — {visit.dateMismatchNote}</p>
               )}
-              <p className="muted">This visit is completed and read-only.</p>
+              <p className="muted">{t('completed_readonly')}</p>
             </>
           )}
         </div>
       ) : (
         <div className="card">
-          <h2>Complete visit</h2>
+          <h2>{t('complete_visit_title')}</h2>
           <div className="field">
-            <label htmlFor="visit-result">Result *</label>
+            <label htmlFor="visit-result">{t('result_label')}</label>
             <input id="visit-result" value={result} onChange={(e) => setResult(e.target.value)} />
           </div>
           <div className="field">
-            <label htmlFor="visit-result-notes">Notes</label>
+            <label htmlFor="visit-result-notes">{t('notes_label')}</label>
             <textarea id="visit-result-notes" rows={2} value={resultNotes} onChange={(e) => setResultNotes(e.target.value)} />
           </div>
           <label className="checkbox-row">
@@ -332,28 +333,28 @@ export function VisitDetailPage() {
               disabled={!hasEvidence}
               onChange={(e) => setChangeStage(e.target.checked)}
             />
-            Change outlet stage
+            {t('change_outlet_stage')}
           </label>
           {!hasEvidence && (
-            <p className="muted">Add at least one piece of evidence to unlock stage change (BR3).</p>
+            <p className="muted">{t('add_evidence_to_unlock')}</p>
           )}
           {changeStage && (
             <div className="field-group--conditional">
               <div className="field">
-                <label htmlFor="visit-new-stage">New stage (defaults to target)</label>
+                <label htmlFor="visit-new-stage">{t('new_stage_default')}</label>
                 <select id="visit-new-stage" value={newStage} onChange={(e) => setNewStage(e.target.value as Stage)}>
                   {STAGES.map((s) => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
                 </select>
               </div>
               {newStage === outlet.currentStage && (
-                <p className="warning-text">⚠ This is the outlet's current stage — no transition or history entry will be recorded.</p>
+                <p className="warning-text">{t('current_stage_warning')}</p>
               )}
             </div>
           )}
           {completingOnDifferentDay && (
             <div className="field">
-              <p className="warning-text">⚠ This is being completed on a different day than scheduled ({visit.visitDate}) — why?</p>
-              <label htmlFor="visit-date-mismatch-note">Reason *</label>
+              <p className="warning-text">{t('different_day_warning', { date: visit.visitDate })}</p>
+              <label htmlFor="visit-date-mismatch-note">{t('reason_date_mismatch_label')}</label>
               <textarea
                 id="visit-date-mismatch-note"
                 rows={2}
@@ -364,17 +365,17 @@ export function VisitDetailPage() {
           )}
           {error && <p className="error-text">{error}</p>}
           <button className="btn btn-primary" style={{ marginTop: 12 }} type="button" onClick={save} disabled={saving} aria-busy={saving}>
-            {saving ? 'Completing…' : 'Complete visit'}
+            {saving ? t('completing') : t('complete_visit_button')}
           </button>
         </div>
       )}
 
       <div className="card">
-        <h2>Stage history — {outlet.name}</h2>
-        {history.length === 0 && <p className="muted">No transitions yet.</p>}
+        <h2>{t('stage_history_title', { name: outlet.name })}</h2>
+        {history.length === 0 && <p className="muted">{t('no_transitions_yet')}</p>}
         <div className="table-wrap">
           <table className="table">
-            <thead><tr><th>When</th><th>From</th><th>To</th><th>By</th><th>Visit</th></tr></thead>
+            <thead><tr><th>{t('when_header')}</th><th>{t('from_header')}</th><th>{t('to_header')}</th><th>{t('by_header')}</th><th>{t('visit_header')}</th></tr></thead>
             <tbody>
               {history.map((h) => {
                 const sourceVisit = db.visits.find((v) => v.id === h.visitId);
