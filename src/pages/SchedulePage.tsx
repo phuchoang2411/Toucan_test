@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { useDB } from '../hooks/useDB';
+import { useScopedDB } from '../hooks/useScopedDB';
 import { SALES_REPS } from '../domain/types';
 import { StageBadge } from '../components/StageBadge';
 import { SyncBadge } from '../components/SyncBadge';
@@ -9,7 +9,7 @@ import { localISODate, localWeekRange } from '../domain/dates';
 import type { KeyboardEvent } from 'react';
 
 export function SchedulePage() {
-  const db = useDB();
+  const db = useScopedDB();
   const navigate = useNavigate();
   const outletById = new Map(db.outlets.map((o) => [o.id, o]));
 
@@ -63,13 +63,15 @@ export function SchedulePage() {
       </header>
 
       <div className="filters">
-        <div className="field">
-          <label htmlFor="filter-rep">Rep</label>
-          <select id="filter-rep" value={repFilter} onChange={(e) => setFilter('rep', e.target.value)}>
-            <option value="all">All reps</option>
-            {SALES_REPS.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
-        </div>
+        {db.isManager && (
+          <div className="field">
+            <label htmlFor="filter-rep">Rep</label>
+            <select id="filter-rep" value={repFilter} onChange={(e) => setFilter('rep', e.target.value)}>
+              <option value="all">All reps</option>
+              {SALES_REPS.map((r) => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+        )}
         <div className="field">
           <label htmlFor="filter-status">Status</label>
           <select id="filter-status" value={statusFilter} onChange={(e) => setFilter('status', e.target.value)}>

@@ -5,6 +5,8 @@ import { localISODate } from '../domain/dates';
 import type { Channel, Stage, Tier } from '../domain/types';
 import { StageBadge } from '../components/StageBadge';
 import { useDB } from '../hooks/useDB';
+import { useSession } from '../hooks/useSession';
+import { canAccess } from '../domain/authz';
 import { outletService } from '../services/outletService';
 import { fireToast } from '../components/Toast';
 
@@ -12,7 +14,11 @@ export function OutletFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const db = useDB();
-  const editing = db.outlets.find((o) => o.id === id);
+  const user = useSession();
+  const isManager = user.role === 'manager';
+  const found = db.outlets.find((o) => o.id === id);
+  // Treat another rep's outlet the same as "not found" — no existence disclosure (A9 rework).
+  const editing = found && canAccess(user, found) ? found : undefined;
   const formRef = useRef<HTMLFormElement>(null);
 
   const existingPlans = useMemo(
@@ -29,7 +35,7 @@ export function OutletFormPage() {
     address: editing?.address ?? '',
     channel: (editing?.channel ?? 'Cafe') as Channel,
     tier: (editing?.tier ?? 'B') as Tier,
-    salesRep: editing?.salesRep ?? (SALES_REPS[0] as string),
+    salesRep: editing?.salesRep ?? (isManager ? (SALES_REPS[0] as string) : user.name),
     currentStage: (editing?.currentStage ?? 'RawLead') as Stage,
     notes: editing?.notes ?? '',
   });
@@ -104,7 +110,9 @@ export function OutletFormPage() {
           ? 'This outlet already has a different planned visit on that date — pick another date.'
           : code === 'OUTLET_NOT_FOUND'
             ? 'This outlet no longer exists — it may have been deleted elsewhere.'
-            : 'Failed to save outlet',
+            : code === 'FORBIDDEN' || code === 'FORBIDDEN_REASSIGN'
+              ? 'You are not authorized to make this change.'
+              : 'Failed to save outlet',
         'error',
       );
     }
@@ -144,9 +152,16 @@ export function OutletFormPage() {
           <div className="field-row">
             <div className="field">
               <label htmlFor="outlet-sales-rep">Sales rep *</label>
-              <select id="outlet-sales-rep" value={form.salesRep} onChange={set('salesRep')}>
-                {SALES_REPS.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
+              {isManager ? (
+                <select id="outlet-sales-rep" value={form.salesRep} onChange={set('salesRep')}>
+                  {SALES_REPS.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              ) : (
+                <>
+                  <input id="outlet-sales-rep" value={form.salesRep} disabled readOnly />
+                  <span className="muted">Only a manager can reassign an outlet to another rep</span>
+                </>
+              )}
             </div>
             <div className="field">
               <label htmlFor="outlet-current-stage">Current stage</label>

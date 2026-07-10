@@ -1,10 +1,10 @@
 import { Link, useSearchParams } from 'react-router-dom';
 import { STAGES, STAGE_LABELS } from '../domain/types';
-import { useDB } from '../hooks/useDB';
+import { useScopedDB } from '../hooks/useScopedDB';
 import { StageBadge } from '../components/StageBadge';
 
 export function OutletListPage() {
-  const { outlets } = useDB();
+  const { outlets } = useScopedDB();
   const [searchParams, setSearchParams] = useSearchParams();
   const rawStage = searchParams.get('stage');
   const stageFilter = rawStage && STAGES.includes(rawStage as typeof STAGES[number]) ? rawStage : 'all';

@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
-import { useDB } from '../hooks/useDB';
+import { useScopedDB } from '../hooks/useScopedDB';
 import { STAGES, STAGE_LABELS, SALES_REPS } from '../domain/types';
 import { isOverdue } from '../domain/visits';
 import { localISODate, localWeekRange } from '../domain/dates';
 
 export function DashboardPage() {
-  const db = useDB();
+  const db = useScopedDB();
   const today = localISODate();
   const week = localWeekRange();
 
@@ -16,7 +16,8 @@ export function DashboardPage() {
     ...STAGES.map((s) => db.outlets.filter((o) => o.currentStage === s).length),
   );
 
-  const repRows = SALES_REPS.map((rep) => {
+  const visibleReps = db.isManager ? SALES_REPS : [db.currentUser.name];
+  const repRows = visibleReps.map((rep) => {
     const repOutlets = db.outlets.filter((o) => o.salesRep === rep);
     const repVisits = db.visits.filter((v) => v.salesRep === rep);
     return {

@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CANCEL_REASONS, EVIDENCE_TYPES, STAGES, STAGE_LABELS } from '../domain/types';
 import type { CancelReason, EvidenceType, Stage } from '../domain/types';
 import { useDB } from '../hooks/useDB';
+import { useSession } from '../hooks/useSession';
+import { canAccess } from '../domain/authz';
 import { visitService } from '../services/visitService';
 import { isOverdue } from '../domain/visits';
 import { localISODate } from '../domain/dates';
@@ -14,8 +16,11 @@ export function VisitDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const db = useDB();
+  const user = useSession();
 
-  const visit = db.visits.find((v) => v.id === id);
+  const foundVisit = db.visits.find((v) => v.id === id);
+  // Treat another rep's visit the same as "not found" — no existence disclosure (A9 rework).
+  const visit = foundVisit && canAccess(user, foundVisit) ? foundVisit : undefined;
   const outlet = visit ? db.outlets.find((o) => o.id === visit.outletId) : undefined;
   const evidence = db.evidence.filter((e) => e.visitId === id);
   const history = outlet
@@ -69,8 +74,9 @@ export function VisitDetailPage() {
       await visitService.addEvidence(visit!.id, { type: evType, name: evName.trim() });
       fireToast('Evidence added');
       setEvName('');
-    } catch {
-      setEvError('Failed to add evidence');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      setEvError(message === 'FORBIDDEN' ? 'You are not authorized to add evidence to this visit.' : 'Failed to add evidence');
     }
     setAddingEvidence(false);
   }
@@ -94,7 +100,9 @@ export function VisitDetailPage() {
           ? 'Stage change blocked: attach at least one piece of evidence first (BR3).'
           : message === 'RESULT_REQUIRED'
             ? 'Result is required to complete a visit.'
-            : message,
+            : message === 'FORBIDDEN'
+              ? 'You are not authorized to complete this visit.'
+              : message,
       );
       setSaving(false);
     }
@@ -114,7 +122,9 @@ export function VisitDetailPage() {
       setRescheduleError(
         message === 'DATE_ALREADY_PLANNED'
           ? 'This outlet already has a planned visit on that date.'
-          : message,
+          : message === 'FORBIDDEN'
+            ? 'You are not authorized to reschedule this visit.'
+            : message,
       );
     }
     setRescheduling(false);
@@ -129,7 +139,8 @@ export function VisitDetailPage() {
         fireToast('Visit cancelled');
         setShowCancel(false);
       } catch (e) {
-        setCancelError(e instanceof Error ? e.message : String(e));
+        const message = e instanceof Error ? e.message : String(e);
+        setCancelError(message === 'FORBIDDEN' ? 'You are not authorized to cancel this visit.' : message);
       }
       setCancelling(false);
     } else {

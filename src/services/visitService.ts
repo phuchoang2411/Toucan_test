@@ -1,4 +1,6 @@
 import { repository } from '../store/repository';
+import { session } from '../store/session';
+import { assertCanAccess, canAccess } from '../domain/authz';
 import { syncService } from './syncService';
 import type { CancelReason, Evidence, EvidenceType, Stage, Visit } from '../domain/types';
 
@@ -22,15 +24,20 @@ export interface CompleteVisitInput {
 
 export const visitService = {
   async list(): Promise<Visit[]> {
-    return [...repository.getState().visits].sort((a, b) => a.visitDate.localeCompare(b.visitDate));
+    const user = session.getState();
+    return [...repository.getState().visits].filter((v) => canAccess(user, v)).sort((a, b) => a.visitDate.localeCompare(b.visitDate));
   },
 
   async get(id: string): Promise<Visit | undefined> {
-    return repository.getState().visits.find((v) => v.id === id);
+    const user = session.getState();
+    const visit = repository.getState().visits.find((v) => v.id === id);
+    return visit && canAccess(user, visit) ? visit : undefined;
   },
 
   /**
    * BR1/BR2 (A1): upsert keyed on (salesRep, outletId, visitDate) among planned visits only.
+   * Authorization (A9 rework): a rep may only schedule/move visits under their own name;
+   * scheduling a visit for another rep (including via reassignment) requires a manager.
    * When `existingVisitId` names a different planned visit than the date match, the visit is
    * moved (a reschedule and/or rep reassignment — the visit follows the outlet) rather than
    * forking a second plan — unless another planned visit already occupies the destination
@@ -38,6 +45,8 @@ export const visitService = {
    * (which would also mean discarding one's evidence).
    */
   async upsertPlanned(input: ScheduleVisitInput): Promise<{ visit: Visit; created: boolean }> {
+    const user = session.getState();
+    assertCanAccess(user, { salesRep: input.salesRep });
     const db = repository.getState();
     const outlet = db.outlets.find((o) => o.id === input.outletId);
     if (!outlet) throw new Error('OUTLET_NOT_FOUND');
@@ -100,6 +109,7 @@ export const visitService = {
   async addEvidence(visitId: string, input: { type: EvidenceType; name: string }): Promise<Evidence> {
     const visit = repository.getState().visits.find((v) => v.id === visitId);
     if (!visit) throw new Error('VISIT_NOT_FOUND');
+    assertCanAccess(session.getState(), visit);
     if (visit.status !== 'planned') throw new Error('VISIT_READ_ONLY');
     const evidence: Evidence = {
       id: crypto.randomUUID(),
@@ -115,6 +125,7 @@ export const visitService = {
   async cancelVisit(visitId: string, reason: CancelReason, note?: string): Promise<Visit> {
     const visit = repository.getState().visits.find((v) => v.id === visitId);
     if (!visit) throw new Error('VISIT_NOT_FOUND');
+    assertCanAccess(session.getState(), visit);
     if (visit.status !== 'planned') throw new Error('VISIT_READ_ONLY');
 
     const now = new Date().toISOString();
@@ -136,6 +147,7 @@ export const visitService = {
   async reschedule(input: { visitId: string; newDate: string }): Promise<Visit> {
     const visit = repository.getState().visits.find((v) => v.id === input.visitId);
     if (!visit) throw new Error('VISIT_NOT_FOUND');
+    assertCanAccess(session.getState(), visit);
     if (visit.status !== 'planned') throw new Error('VISIT_READ_ONLY');
 
     await this.upsertPlanned({
@@ -155,9 +167,11 @@ export const visitService = {
 
   /** BR3–BR5: complete a visit; optional stage transition gated on ≥1 evidence. */
   async complete(input: CompleteVisitInput): Promise<Visit> {
+    const user = session.getState();
     const db = repository.getState();
     const visit = db.visits.find((v) => v.id === input.visitId);
     if (!visit) throw new Error('VISIT_NOT_FOUND');
+    assertCanAccess(user, visit);
     if (visit.status !== 'planned') throw new Error('VISIT_READ_ONLY');
     if (!input.result.trim()) throw new Error('RESULT_REQUIRED');
 
@@ -182,7 +196,7 @@ export const visitService = {
       stageHistory: transitioning
         ? [
             ...cur.stageHistory,
-            { id: crypto.randomUUID(), outletId: outlet.id, visitId: visit.id, fromStage: outlet.currentStage, toStage: input.newStage!, changedBy: visit.salesRep, changedAt: now },
+            { id: crypto.randomUUID(), outletId: outlet.id, visitId: visit.id, fromStage: outlet.currentStage, toStage: input.newStage!, changedBy: user.name, changedAt: now },
           ]
         : cur.stageHistory,
     }));

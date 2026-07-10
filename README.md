@@ -136,7 +136,13 @@ spec's open gaps:
 - **A7 — Stage snapshot at scheduling time.** The visit stores
   `currentStageSnapshot`; the live stage may change before the visit happens.
 - **A8 — Evidence lives on the Visit; transitions reference the Visit.**
-- **A9 — Single-user prototype** (no auth; rep is a select from a seeded list).
+- **A9 — Authorization: rep vs. manager, enforced at the service layer** (not just
+  the UI). A rep sees/manages only their own outlets and visits; a manager sees
+  everything and is the only role that can reassign. `src/domain/authz.ts` is
+  the policy; `src/services/*` assert it before every write and throw `FORBIDDEN`;
+  a mock "Signed in as" switcher (`src/store/session.ts`) stands in for a real
+  authenticated session. See Spec.md §3 (A9) for the full design and its
+  honest limits as a client-only prototype.
 - **A10 — In-memory + `localStorage`** behind an async service layer that mimics
   a REST API, so swapping in a real backend is a mechanical change.
 - **Cancelled visits** are kept as records with evidence preserved. Cancellation is

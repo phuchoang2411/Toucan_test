@@ -139,7 +139,13 @@ còn mở của spec:
 - **A7 — Snapshot giai đoạn tại thời điểm lên lịch.** Buổi ghé thăm lưu
   `currentStageSnapshot`; giai đoạn thực tế có thể thay đổi trước khi buổi ghé thăm diễn ra.
 - **A8 — Evidence gắn với Visit; việc chuyển giai đoạn tham chiếu tới Visit.**
-- **A9 — Prototype một người dùng** (không auth; rep là một lựa chọn từ danh sách đã seed).
+- **A9 — Phân quyền: rep vs. manager, thực thi ở tầng service** (không chỉ ở UI).
+  Một rep chỉ xem/quản lý được outlet và visit của chính mình; manager xem được
+  tất cả và là vai trò duy nhất được phép chuyển rep. `src/domain/authz.ts` là
+  chính sách; `src/services/*` khẳng định nó trước mỗi lần ghi và ném lỗi
+  `FORBIDDEN`; một bộ chọn "Signed in as" giả lập (`src/store/session.ts`) đại
+  diện cho một phiên đã xác thực thật. Xem Spec.vi.md §3 (A9) để biết thiết kế
+  đầy đủ và giới hạn thành thật của nó với tư cách một prototype chỉ chạy phía client.
 - **A10 — In-memory + `localStorage`** đứng sau một tầng service bất đồng bộ mô phỏng một
   REST API, để việc thay thế bằng backend thật là một thay đổi mang tính cơ học.
 - **Các buổi ghé thăm bị hủy (cancelled)** được giữ lại làm bản ghi kèm evidence. Trạng thái

@@ -7,6 +7,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { Toast } from './components/Toast';
 import { RouteFocus } from './components/RouteFocus';
+import { UserSwitcher } from './components/UserSwitcher';
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
         <NavLink to="/outlets">Outlets</NavLink>
         <NavLink to="/schedule">Working Schedule</NavLink>
         <NavLink to="/dashboard">Dashboard</NavLink>
+        <UserSwitcher />
       </nav>
       <main className="content">
         <Routes>

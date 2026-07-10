@@ -16,7 +16,18 @@ export type Channel = (typeof CHANNELS)[number];
 export const TIERS = ['A', 'B', 'C'] as const;
 export type Tier = (typeof TIERS)[number];
 
-export const SALES_REPS = ['Phúc', 'Linh', 'Minh'] as const;
+export type Role = 'rep' | 'manager';
+
+export const USERS = [
+  { name: 'Phúc', role: 'rep' },
+  { name: 'Linh', role: 'rep' },
+  { name: 'Minh', role: 'rep' },
+  { name: 'Thảo', role: 'manager' },
+] as const satisfies readonly { name: string; role: Role }[];
+
+export type User = (typeof USERS)[number];
+
+export const SALES_REPS = USERS.filter((u) => u.role === 'rep').map((u) => u.name);
 
 export type VisitStatus = 'planned' | 'completed' | 'cancelled';
 export const CANCEL_REASONS = ['Customer postponed', 'No-show', 'Planned by mistake', 'Unscheduled from outlet form', 'Other'] as const;

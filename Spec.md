@@ -76,8 +76,26 @@ The visit stores `currentStageSnapshot` — the outlet's stage **when the visit 
 ### A8. Evidence lives on the Visit, transitions reference the Visit
 Evidence is attached to a visit (it documents the meeting). A stage transition requires ≥1 evidence on the visit that triggers it, and `StageHistory` stores the `visitId` — so every transition is traceable to its proof without duplicating evidence records.
 
-### A9. Single-user prototype
-No auth. "Sales rep" is a select field from a seeded list. Multi-user concerns (permissions, ownership enforcement) are out of scope.
+### A9. Authorization: rep vs. manager, enforced at the service layer
+UI-only restrictions (hiding a button, disabling a field) only guide honest users — anyone who opens devtools, edits the URL, or calls a service function directly bypasses them. So the prototype adds a lightweight authorization model whose *enforcement* lives in the service layer (`src/services/*`), the same boundary that already mediates every mutation; the UI reflects the same rules but is not the source of truth for them.
+
+**Roles.** Two roles, no more (`src/domain/types.ts`, `USERS`):
+- **Rep** — owns outlets/visits where `salesRep === self`. Can see and manage only their own records.
+- **Manager** — sees and manages every record, and is the only role allowed to reassign an outlet (or the visit bound to it) to a different rep.
+
+**Session.** No real authentication — `src/store/session.ts` holds a mock "current user" (a `USERS` entry), switchable via a "Signed in as" picker in the top nav (`UserSwitcher`). This stands in for an authenticated request context; in a real backend it would come from a verified session/JWT, not a client-side toggle.
+
+**Policy.** `src/domain/authz.ts` is a small pure module — `canAccess(user, record)` (manager, or `record.salesRep === user.name`) and `canReassign(user)` (manager only) — used two ways:
+- **Services assert it and throw** (`FORBIDDEN` / `FORBIDDEN_REASSIGN`) before mutating: `outletService.save`, and every write in `visitService` (`upsertPlanned`, `addEvidence`, `cancelVisit`, `reschedule`, `complete`). This is real enforcement — it applies no matter how the call is made, UI or otherwise. On create, a rep's outlet is silently forced onto themself; a rep changing `salesRep` on an edit (or scheduling under another rep's name) is rejected.
+- **UI calls the same predicate** to lock the sales-rep field, hide manager-only filters, and gate action buttons — this is UX, not security; its only job is to stop honest users from hitting a wall they didn't need to.
+
+**View scoping.** List/dashboard pages read through `useScopedDB` (`src/hooks/useScopedDB.ts`), which filters `outlets`/`visits` to the current user's own records unless they're a manager — same `canAccess` rule, applied to reads. Direct-by-id pages (outlet edit, visit detail) treat an existing-but-forbidden record the same as a missing one, so a rep probing another rep's URL learns nothing about whether the record exists.
+
+**Attribution.** `StageHistory.changedBy` records the *acting* user, not the visit's rep — so a manager completing a visit on a rep's behalf is correctly attributed to the manager, preserving the audit trail's meaning.
+
+**Honesty about the prototype.** This is still a client-only app with no real backend: `localStorage` is trivially editable, and the "service layer" runs in the same browser process as the UI, so a sufficiently motivated user can still tamper with state directly. The value of this design is structural — enforcement lives at the data boundary (services), not scattered across components — and that structure carries over unchanged to a real backend: swap the mock `session` for a verified request context (JWT/cookie), move `authz.ts` and the service checks server-side (or into row-level security), and the UI layer needs no changes.
+
+**Out of scope for this prototype:** real authentication, fine-grained permissions beyond rep/manager, audit logging of read access, and admin-level user management (`USERS` is a hardcoded seed list, mirroring `SALES_REPS` before it).
 
 ### A10. Persistence
 In-memory store with localStorage persistence behind a service layer that mimics an async API. Rationale in §7.

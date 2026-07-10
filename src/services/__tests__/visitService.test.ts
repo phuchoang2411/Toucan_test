@@ -1,9 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { visitService } from '../visitService';
 import { repository } from '../../store/repository';
-import { makeEvidence, makeOutlet, makeVisit, resetDB } from './helpers';
+import { MANAGER, makeEvidence, makeOutlet, makeVisit, resetDB, resetSession } from './helpers';
 
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+  vi.useFakeTimers();
+  resetSession(); // defaults to Phúc (rep)
+});
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -88,8 +91,9 @@ describe('visitService.upsertPlanned (A1/BR2)', () => {
     ]);
   });
 
-  it('changing the sales rep on an outlet reassigns the planned visit it is bound to (visit follows the outlet)', async () => {
+  it('changing the sales rep on an outlet reassigns the planned visit it is bound to (visit follows the outlet, manager-only per A9 rework)', async () => {
     resetDB({ outlets: [makeOutlet({ salesRep: 'Linh' })], visits: [makeVisit({ salesRep: 'Phúc', misaSyncStatus: 'Synced' })] });
+    resetSession(MANAGER);
     const { visit, created } = await visitService.upsertPlanned({
       outletId: 'o1', salesRep: 'Linh', visitDate: '2026-07-10',
       targetStage: 'ProposalSent', objective: 'Reassigned to new rep',
@@ -112,6 +116,7 @@ describe('visitService.upsertPlanned (A1/BR2)', () => {
         makeVisit({ id: 'v2', salesRep: 'Linh', visitDate: '2026-07-10' }),
       ],
     });
+    resetSession(MANAGER);
     await expect(
       visitService.upsertPlanned({
         outletId: 'o1', salesRep: 'Linh', visitDate: '2026-07-10',
@@ -400,5 +405,58 @@ describe('visitService.reschedule', () => {
     expect(repository.getState().visits[0].misaSyncStatus).toBe('Queued');
     vi.advanceTimersByTime(1500);
     expect(['Synced', 'Failed']).toContain(repository.getState().visits[0].misaSyncStatus);
+  });
+});
+
+describe('visitService authorization (A9 rework)', () => {
+  it('a rep cannot schedule a visit under another rep\'s name', async () => {
+    resetDB({ outlets: [makeOutlet({ salesRep: 'Linh' })] });
+    await expect(
+      visitService.upsertPlanned({
+        outletId: 'o1', salesRep: 'Linh', visitDate: '2026-07-10',
+        targetStage: 'SQL', objective: 'Not my rep',
+      }),
+    ).rejects.toThrow('FORBIDDEN');
+  });
+
+  it('a manager can schedule a visit under any rep\'s name', async () => {
+    resetDB({ outlets: [makeOutlet({ salesRep: 'Linh' })] });
+    resetSession(MANAGER);
+    const { visit } = await visitService.upsertPlanned({
+      outletId: 'o1', salesRep: 'Linh', visitDate: '2026-07-10',
+      targetStage: 'SQL', objective: 'Manager scheduling for Linh',
+    });
+    expect(visit.salesRep).toBe('Linh');
+  });
+
+  it('a rep cannot add evidence, complete, reschedule, or cancel another rep\'s visit', async () => {
+    resetDB({ outlets: [makeOutlet({ salesRep: 'Linh' })], visits: [makeVisit({ salesRep: 'Linh' })] });
+    await expect(visitService.addEvidence('v1', { type: 'note', name: 'x' })).rejects.toThrow('FORBIDDEN');
+    await expect(visitService.complete({ visitId: 'v1', result: 'x' })).rejects.toThrow('FORBIDDEN');
+    await expect(visitService.reschedule({ visitId: 'v1', newDate: '2026-08-01' })).rejects.toThrow('FORBIDDEN');
+    await expect(visitService.cancelVisit('v1', 'Other')).rejects.toThrow('FORBIDDEN');
+  });
+
+  it('a manager can act on any rep\'s visit', async () => {
+    resetDB({ outlets: [makeOutlet({ salesRep: 'Linh' })], visits: [makeVisit({ salesRep: 'Linh' })] });
+    resetSession(MANAGER);
+    const visit = await visitService.complete({ visitId: 'v1', result: 'Manager stepped in' });
+    expect(visit.status).toBe('completed');
+  });
+
+  it('stage history attributes the transition to the acting user, not the visit\'s rep (manager completing on a rep\'s behalf)', async () => {
+    resetDB({ outlets: [makeOutlet({ salesRep: 'Linh' })], visits: [makeVisit({ salesRep: 'Linh' })], evidence: [makeEvidence()] });
+    resetSession(MANAGER);
+    await visitService.complete({ visitId: 'v1', result: 'Closed by manager', newStage: 'CustomerSampling' });
+    expect(repository.getState().stageHistory[0].changedBy).toBe(MANAGER.name);
+  });
+
+  it('visitService.list/get are scoped to the current rep; a manager sees everything', async () => {
+    resetDB({ visits: [makeVisit({ id: 'v1', salesRep: 'Phúc' }), makeVisit({ id: 'v2', salesRep: 'Linh' })] });
+    expect((await visitService.list()).map((v) => v.id)).toEqual(['v1']);
+    expect(await visitService.get('v2')).toBeUndefined();
+    resetSession(MANAGER);
+    expect((await visitService.list()).map((v) => v.id).sort()).toEqual(['v1', 'v2']);
+    expect(await visitService.get('v2')).toBeDefined();
   });
 });
