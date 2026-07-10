@@ -387,7 +387,7 @@ describe('visitService.reschedule', () => {
   it('moves a planned visit to a new date, keeps same id and evidence', async () => {
     resetDB({
       outlets: [makeOutlet()],
-      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-10', misaSyncStatus: 'Synced' })],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-12', misaSyncStatus: 'Synced' })],
       evidence: [makeEvidence({ id: 'e1', visitId: 'v1' })],
     });
     const visit = await visitService.reschedule({ visitId: 'v1', newDate: '2026-07-15' });
@@ -404,7 +404,7 @@ describe('visitService.reschedule', () => {
     resetDB({
       outlets: [makeOutlet()],
       visits: [
-        makeVisit({ id: 'v1', visitDate: '2026-07-10' }),
+        makeVisit({ id: 'v1', visitDate: '2026-07-12' }),
         makeVisit({ id: 'v2', visitDate: '2026-07-20' }),
       ],
     });
@@ -436,7 +436,7 @@ describe('visitService.reschedule', () => {
   it('enqueues sync and resolves after 1.5s', async () => {
     resetDB({
       outlets: [makeOutlet()],
-      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-10', misaSyncStatus: 'Synced' })],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-12', misaSyncStatus: 'Synced' })],
     });
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
     const visit = await visitService.reschedule({ visitId: 'v1', newDate: '2026-07-15' });
@@ -444,6 +444,154 @@ describe('visitService.reschedule', () => {
     expect(repository.getState().visits[0].misaSyncStatus).toBe('Queued');
     vi.advanceTimersByTime(1500);
     expect(['Synced', 'Failed']).toContain(repository.getState().visits[0].misaSyncStatus);
+  });
+});
+
+describe('visitService.reschedule — touches-today-or-past note gate (BR7)', () => {
+  it('rejects rescheduling an overdue visit without a note', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-05' })],
+    });
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-15' }),
+    ).rejects.toThrow('RESCHEDULE_NOTE_REQUIRED');
+  });
+
+  it('a whitespace-only note does not satisfy the overdue reschedule gate', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-05' })],
+    });
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-15', note: '   ' }),
+    ).rejects.toThrow('RESCHEDULE_NOTE_REQUIRED');
+  });
+
+  it('rescheduling an overdue visit with a note succeeds and records it', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-05' })],
+    });
+    const visit = await visitService.reschedule({
+      visitId: 'v1',
+      newDate: '2026-07-15',
+      note: 'Owner was on leave, moving to next week',
+    });
+    expect(visit.visitDate).toBe('2026-07-15');
+    expect(visit.dateMismatchNote).toBe('Owner was on leave, moving to next week');
+    expect(repository.getState().visits[0].dateMismatchNote).toBe('Owner was on leave, moving to next week');
+  });
+
+  it('rejects rescheduling a visit due today without a note (closes the same-day defer-forever loophole)', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-10' })], // '2026-07-10' is mocked "today"
+    });
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-11' }),
+    ).rejects.toThrow('RESCHEDULE_NOTE_REQUIRED');
+  });
+
+  it('postponing a not-yet-due (future) visit further out needs no note (forward-looking reschedule stays frictionless)', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-12' })],
+    });
+    const visit = await visitService.reschedule({ visitId: 'v1', newDate: '2026-07-20' });
+    expect(visit.visitDate).toBe('2026-07-20');
+    expect(visit.dateMismatchNote).toBeUndefined();
+  });
+
+  it('rejects moving a future visit to an earlier future date without a note (same logic as completing early)', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-20' })], // neither date touches today ('2026-07-10')
+    });
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-15' }),
+    ).rejects.toThrow('RESCHEDULE_NOTE_REQUIRED');
+  });
+
+  it('moving a future visit to an earlier future date with a note succeeds and records it', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-20' })],
+    });
+    const visit = await visitService.reschedule({
+      visitId: 'v1',
+      newDate: '2026-07-15',
+      note: 'Outlet asked to move it up a few days',
+    });
+    expect(visit.visitDate).toBe('2026-07-15');
+    expect(visit.dateMismatchNote).toBe('Outlet asked to move it up a few days');
+  });
+
+  it('rejects pulling a future visit straight onto today without a note (closes the pull-forward loophole)', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-20' })], // safely in the future, not due/overdue
+    });
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-10' }), // '2026-07-10' is mocked "today"
+    ).rejects.toThrow('RESCHEDULE_NOTE_REQUIRED');
+  });
+
+  it('pulling a future visit onto today with a note succeeds and records it, and completing same-day needs no extra note', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-20' })],
+    });
+    const rescheduled = await visitService.reschedule({
+      visitId: 'v1',
+      newDate: '2026-07-10',
+      note: 'Rep is at the outlet anyway today, doing it now instead of next week',
+    });
+    expect(rescheduled.visitDate).toBe('2026-07-10');
+    expect(rescheduled.dateMismatchNote).toBe('Rep is at the outlet anyway today, doing it now instead of next week');
+
+    const completed = await visitService.complete({ visitId: 'v1', result: 'Done' });
+    expect(completed.dateMismatchNote).toBe('Rep is at the outlet anyway today, doing it now instead of next week');
+  });
+
+  it('rejects pulling a future visit onto a past date without a note (both ends of the move are checked)', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-20' })],
+    });
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-05' }),
+    ).rejects.toThrow('RESCHEDULE_NOTE_REQUIRED');
+  });
+
+  it('cannot indefinitely defer by rescheduling one day forward each day — each hop still needs a note', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-10' })], // due "today"
+    });
+    // Day 1: due today, push to tomorrow — must explain.
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-11' }),
+    ).rejects.toThrow('RESCHEDULE_NOTE_REQUIRED');
+    await visitService.reschedule({ visitId: 'v1', newDate: '2026-07-11', note: 'Owner unavailable today' });
+    expect(repository.getState().visits[0].visitDate).toBe('2026-07-11');
+
+    // Day 2: system clock advances to the date it was just pushed to — still due "today", still gated.
+    vi.setSystemTime(new Date('2026-07-11T12:00:00.000Z'));
+    await expect(
+      visitService.reschedule({ visitId: 'v1', newDate: '2026-07-12' }),
+    ).rejects.toThrow('RESCHEDULE_NOTE_REQUIRED');
+  });
+
+  it('completing on the rescheduled date preserves the overdue-reschedule note instead of clearing it', async () => {
+    resetDB({
+      outlets: [makeOutlet()],
+      visits: [makeVisit({ id: 'v1', visitDate: '2026-07-05' })],
+    });
+    await visitService.reschedule({ visitId: 'v1', newDate: '2026-07-10', note: 'Rebooked after no-show' });
+    const completed = await visitService.complete({ visitId: 'v1', result: 'Done' });
+    expect(completed.status).toBe('completed');
+    expect(completed.dateMismatchNote).toBe('Rebooked after no-show');
   });
 });
 

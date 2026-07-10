@@ -147,11 +147,24 @@ export const visitService = {
     return { ...cancelled, misaSyncStatus: 'Queued' };
   },
 
-  async reschedule(input: { visitId: string; newDate: string }): Promise<Visit> {
+  async reschedule(input: { visitId: string; newDate: string; note?: string }): Promise<Visit> {
     const visit = repository.getState().visits.find((v) => v.id === input.visitId);
     if (!visit) throw new Error('VISIT_NOT_FOUND');
     assertCanAccess(session.getState(), visit);
     if (visit.status !== 'planned') throw new Error('VISIT_READ_ONLY');
+
+    // BR7 (reschedule side): mirrors completion-time BR7 — completing before the currently scheduled
+    // date always needs a note, regardless of "today". A reschedule that moves the date earlier than
+    // currently planned is the same kind of deviation and needs the same explanation, whether the new
+    // date lands in the past, on today, or just earlier in the future (e.g. July 20 -> July 15 is just
+    // as much "moving it up" as July 20 -> today, even though neither touches "today"). Separately, a
+    // visit that's already due or overdue needs an explanation for *any* move, even a postponement,
+    // so the fact of its lateness isn't silently erased.
+    const today = localISODate();
+    const movedEarlier = input.newDate < visit.visitDate;
+    const currentlyDueOrOverdue = visit.visitDate <= today;
+    const needsNote = movedEarlier || currentlyDueOrOverdue;
+    if (needsNote && !input.note?.trim()) throw new Error('RESCHEDULE_NOTE_REQUIRED');
 
     await this.upsertPlanned({
       outletId: visit.outletId,
@@ -161,6 +174,14 @@ export const visitService = {
       objective: visit.objective,
       existingVisitId: input.visitId,
     });
+
+    if (needsNote) {
+      repository.setState((cur) => ({
+        ...cur,
+        visits: cur.visits.map((v) => (v.id === input.visitId ? { ...v, dateMismatchNote: input.note!.trim() } : v)),
+      }));
+    }
+
     return repository.getState().visits.find((v) => v.id === input.visitId)!;
   },
 
@@ -197,7 +218,7 @@ export const visitService = {
       status: 'completed',
       result: input.result,
       resultNotes: input.resultNotes,
-      dateMismatchNote: dateMismatch ? input.dateMismatchNote!.trim() : undefined,
+      dateMismatchNote: dateMismatch ? input.dateMismatchNote!.trim() : visit.dateMismatchNote,
       updatedAt: now,
     };
 

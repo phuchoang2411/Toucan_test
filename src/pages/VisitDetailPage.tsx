@@ -43,6 +43,7 @@ export function VisitDetailPage() {
   const [addingEvidence, setAddingEvidence] = useState(false);
   const [showReschedule, setShowReschedule] = useState(false);
   const [newDate, setNewDate] = useState('');
+  const [rescheduleNote, setRescheduleNote] = useState('');
   const [rescheduleError, setRescheduleError] = useState('');
   const [rescheduling, setRescheduling] = useState(false);
   const [showCancel, setShowCancel] = useState(false);
@@ -68,6 +69,10 @@ export function VisitDetailPage() {
   const readOnly = visit.status !== 'planned';
   const hasEvidence = evidence.length > 0;
   const completingOnDifferentDay = visit.visitDate !== localISODate();
+  // Mirrors the service-side gate: needs a reason if the new date is earlier than what's currently
+  // planned (same deviation completing early already requires an explanation for), or the visit is
+  // already due/overdue and is being touched at all.
+  const reschedulingNeedsNote = (newDate !== '' && newDate < visit.visitDate) || visit.visitDate <= localISODate();
 
   async function addEvidence() {
     if (!evName.trim()) return;
@@ -119,10 +124,11 @@ export function VisitDetailPage() {
     setRescheduleError('');
     setRescheduling(true);
     try {
-      await visitService.reschedule({ visitId: visit!.id, newDate });
+      await visitService.reschedule({ visitId: visit!.id, newDate, note: rescheduleNote.trim() || undefined });
       fireToast(t('visit_rescheduled', { date: newDate }));
       setShowReschedule(false);
       setNewDate('');
+      setRescheduleNote('');
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       setRescheduleError(
@@ -130,7 +136,9 @@ export function VisitDetailPage() {
           ? t('date_already_planned_visit')
           : message === 'FORBIDDEN'
             ? t('not_authorized_reschedule')
-            : message,
+            : message === 'RESCHEDULE_NOTE_REQUIRED'
+              ? t('reschedule_note_required')
+              : message,
       );
     }
     setRescheduling(false);
@@ -208,12 +216,24 @@ export function VisitDetailPage() {
               {newDate && newDate < localISODate() && (
                 <p className="warning-text">{t('date_in_past_warning')}</p>
               )}
+              {reschedulingNeedsNote && (
+                <div className="field">
+                  <p className="warning-text">{t('reschedule_overdue_warning')}</p>
+                  <label htmlFor="reschedule-note">{t('reason_date_mismatch_label')}</label>
+                  <textarea
+                    id="reschedule-note"
+                    rows={2}
+                    value={rescheduleNote}
+                    onChange={(e) => setRescheduleNote(e.target.value)}
+                  />
+                </div>
+              )}
               {rescheduleError && <p className="error-text" role="alert">{rescheduleError}</p>}
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button className="btn btn-primary" type="button" onClick={handleReschedule} disabled={rescheduling || !newDate.trim()} aria-busy={rescheduling}>
                   {rescheduling ? t('rescheduling') : t('confirm_reschedule')}
                 </button>
-                <button className="btn" type="button" onClick={() => { setShowReschedule(false); setNewDate(''); setRescheduleError(''); }}>
+                <button className="btn" type="button" onClick={() => { setShowReschedule(false); setNewDate(''); setRescheduleNote(''); setRescheduleError(''); }}>
                   {t('cancel_dismiss')}
                 </button>
               </div>
