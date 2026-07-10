@@ -75,6 +75,12 @@ hooks to. They are present for that contract, not invoked by the prototype's UI.
    schedule or visit detail; it re-runs the transition (20% fail chance per
    sync, so re-save to roll again if none occurred).
 6. **Persistence** — reload the page; state is restored from `localStorage`.
+7. **Schedule filters** — filter the working schedule by rep (Phúc/Linh/Minh),
+   status (planned/completed/cancelled), or date preset (today/this week/overdue).
+   Clear filters button restores the full list.
+8. **Dashboard** (`/dashboard`) — view a horizontal bar chart of outlets per
+   stage, a per-rep breakdown table (outlets/planned/overdue/completed), and an
+   upcoming-this-week visit list with links to each visit.
 
 ## Unit tests (`npm test`)
 
@@ -86,7 +92,11 @@ Spec §10 tests 1–5, implemented TDD in the service layer:
 3. Evidence gate: stage change with 0 evidence → rejected; with 1 evidence →
    `StageHistory` appended, outlet stage updated atomically (one `setState`).
 4. Completing a visit without stage change and without evidence → allowed.
-5. Unchecking "schedule a visit": planned visit deleted; completed preserved.
+5. Unchecking "schedule a visit": planned visits cancelled (status set to
+   `cancelled`, evidence preserved); completed visits untouched.
+6. Cancelled visits reject addEvidence/complete with `VISIT_READ_ONLY`.
+7. `cancel()` on sync service delegates to enqueue (same timer/roll behavior).
+8. `isOverdue` helper: only `planned` past-date visits are overdue.
 
 ## Assumptions & decisions
 
@@ -103,8 +113,9 @@ spec's open gaps:
 - **A3 — Actual stage may differ from target.** Target stage is an expectation
   captured at scheduling; the rep chooses the actual new stage on completion
   (defaulted to target in the UI).
-- **A4 — Unchecking "schedule a visit"** deletes remaining planned visits for
-  the outlet; completed visits are immutable and preserved.
+- **A4 — Unchecking "schedule a visit"** cancels remaining planned visits for the
+  outlet (`status: 'cancelled'`), keeping them and their evidence as records, and
+  enqueues a MISA cancellation per visit; completed visits remain untouched.
 - **A5 — Past dates allowed with a warning**, not blocked (reps sometimes log
   visits after the fact).
 - **A6 — Terminal stages can still be visited** (Won needs care; Lost can be
@@ -115,6 +126,13 @@ spec's open gaps:
 - **A9 — Single-user prototype** (no auth; rep is a select from a seeded list).
 - **A10 — In-memory + `localStorage`** behind an async service layer that mimics
   a REST API, so swapping in a real backend is a mechanical change.
+- **Cancelled visits** are kept as records with evidence preserved. Cancellation is
+  terminal; schedule a new visit to re-plan for the outlet.
+- **Overdue detection** uses local calendar day (`localISODate()`). A visit's date
+  is compared lexically (YYYY-MM-DD). Only `planned` visits with a past date are
+  overdue.
+- **Clear localStorage** (`localStorage.removeItem('magnolia-db-v1')`) to get the
+  updated seed with a cancelled visit, if upgrading from an older version.
 
 **Brainstorming decisions (closing the spec's open gaps):**
 
@@ -142,6 +160,6 @@ spec's open gaps:
   leaving an orphaned plan under the old rep. If the new rep already has a
   planned visit on that date, the reassignment is rejected
   (`DATE_ALREADY_PLANNED`) instead of silently merging the two rows.
-- **Cancel:** unchecking "schedule a visit" deletes **all** planned visits for
-  the outlet and their attached evidence (A4); completed visits and their
-  evidence are preserved as immutable history.
+- **Cancel:** unchecking "schedule a visit" sets **all** planned visits for the
+  outlet to `cancelled`, keeping them and their evidence as records (A4); a MISA
+  cancellation is enqueued per visit; completed visits remain untouched.

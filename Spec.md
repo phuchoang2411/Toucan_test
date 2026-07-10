@@ -59,8 +59,10 @@ The requirements define no transition rules (e.g., "can't skip stages").
 Target stage is captured at scheduling time as an *expectation*. When completing a visit, the rep chooses the actual new stage freely (defaulted to the target stage in the UI). The visit outcome, not the plan, decides.
 
 ### A4. Editing an outlet and unchecking "schedule a visit"
-- **All** of the outlet's still-`planned` visits are deleted, together with their attached evidence (the plan was cancelled). The form warns before saving, listing the dates affected.
-- `completed` visits are kept (history is immutable).
+- All of the outlet's still-`planned` visits are **cancelled** (`status: 'cancelled'`) in place — the visits and their evidence are kept as audit records.
+- A MISA cancellation is enqueued per visit via `syncService.cancel(visitId)`.
+- `completed` visits remain untouched, as before. Cancelled is terminal — there is no re-activation; schedule a new visit instead.
+- The form warns before saving, listing the dates affected.
 
 ### A5. Visit date validation
 Dates in the past are allowed **with a warning**, not blocked — reps sometimes log a visit after the fact. Blocking would push them to enter fake future dates.
@@ -107,13 +109,15 @@ Visit                          -- one row = one line in Working Schedule
   currentStageSnapshot  enum   outlet stage at scheduling time (A7)
   targetStage           enum   expected stage after visit
   objective             string visit goal / next step
-  status                enum   planned | completed
+  status                enum   planned | completed | cancelled
   result                string outcome summary (set on completion)
   resultNotes           string optional
   misaSyncStatus        enum   Queued | Synced | Failed
   createdAt, updatedAt
 
   LOGICAL UNIQUE: (salesRep, outletId, visitDate) WHERE status = 'planned'   (A1)
+
+  *Cancelled is terminal; to plan again, schedule a new visit.*
 
 Evidence
   id          string (uuid)
@@ -159,6 +163,7 @@ Ports & adapters. Business logic depends on an interface, never on MISA specific
 interface SyncService {
   enqueue(visitId: string): void
   retry(visitId: string): void
+  cancel(visitId: string): void
   getStatus(visitId: string): 'Queued' | 'Synced' | 'Failed'
 }
 
@@ -166,6 +171,7 @@ interface SyncService {
 MockMisaAdapter implements SyncService
   - enqueue: set Queued, then after 1.5s resolve to Synced (80%) or Failed (20%)
   - retry: re-run the same transition from Failed
+  - cancel: delegates to enqueue (same 1.5s/80/20 behavior); a real adapter would POST a cancel payload instead of an upsert
 ```
 
 Swapping in the real MISA API later means writing one new adapter. Zero changes to outlet/visit/stage logic. The UI shows the sync badge per schedule row and a Retry button on `Failed`.
@@ -190,8 +196,9 @@ Consequence: replacing the repository with `fetch()` calls to a real Express/Mon
 
 1. **Outlet list** — table of outlets (name, channel, tier, rep, stage badge), + "New outlet".
 2. **Outlet form (create/edit)** — all fields from §4; "Schedule a visit?" checkbox conditionally reveals visit date, target stage, visit objective. Inline validation errors on save.
-3. **Working Schedule** — table: date, rep, outlet, address, current stage (snapshot), target stage, objective, MISA sync badge, status. Row click → visit detail.
+3. **Working Schedule** — table: date, rep, outlet, address, current stage (snapshot), target stage, objective, MISA sync badge, status. Row click → visit detail. **Filters** toolbar: rep dropdown, status dropdown (planned/completed/cancelled), date preset (all/today/this week/overdue). Clear filters button.
 4. **Visit detail** — record result + notes, add mock evidence (type + name), toggle "change stage", pick new stage (default = target). Save enforces the evidence gate. Shows outlet's stage history at the bottom.
+5. **Dashboard** (`/dashboard`) — horizontal bar chart of outlets per stage, per-rep table (outlets/planned/overdue/completed), upcoming this week visit list.
 
 **Validation summary:**
 - Outlet: name, address, channel, tier, salesRep, stage → required.
@@ -210,7 +217,7 @@ Sales reps: `Phúc`, `Linh`, `Minh`.
 | Hoa Nắng Bakery | Bakery | C | Linh | Raw Lead |
 | Maison Saigon Bistro | Restaurant | A | Minh | Customer Sampling |
 
-Plus one pre-seeded planned visit and one completed visit with evidence, so the schedule screen and history are demonstrable immediately.
+Plus one pre-seeded planned visit, one completed visit with evidence, and one cancelled visit (`visit-cancelled-1`) on Hoa Nắng Bakery with a preserved note evidence, so the schedule screen and history are demonstrable immediately with all statuses represented.
 
 ---
 
@@ -221,7 +228,7 @@ Plus one pre-seeded planned visit and one completed visit with evidence, so the 
 2. Upsert: same key but visit completed → creates a second visit.
 3. Evidence gate: stage change with 0 evidence → rejected; with 1 evidence → accepted, StageHistory row appended, outlet stage updated.
 4. Completing a visit without stage change and without evidence → allowed.
-5. Unchecking "schedule a visit": planned visit deleted; completed visit preserved.
+5. Unchecking "schedule a visit": planned visits cancelled (status set to `cancelled`, evidence preserved); completed visits untouched.
 
 **Manual demo script:**
 1. Create outlet with visit → row appears in schedule, sync goes Queued → Synced/Failed.
@@ -229,6 +236,8 @@ Plus one pre-seeded planned visit and one completed visit with evidence, so the 
 3. Open visit → try stage change with no evidence → blocked with clear message.
 4. Add evidence → change stage → outlet stage updated, history entry visible.
 5. Retry a Failed sync.
+6. **Schedule filters** — filter by rep, status, date preset (today/week/overdue); clear button restores full list.
+7. **Dashboard** (`/dashboard`) — view per-stage bar chart, per-rep breakdown table, upcoming week visit list.
 
 ---
 
@@ -238,6 +247,11 @@ Real MISA integration, real file upload, auth/permissions, multi-tenant, route o
 
 **Known limitations & open questions for the business owner:**
 
-- **Cancellations are not propagated to MISA.** Cancelling a plan (A4) deletes the visit locally, but the `SyncService` port (§6) has no `cancel` operation — the external system would keep a row for a visit that no longer exists. A real integration must answer: *how are deleted/cancelled schedule rows reconciled with MISA?*
-- **No `cancelled` visit status.** Cancelled plans are hard-deleted with their evidence rather than kept as records. A `cancelled` status would preserve the audit trail, enable cancelling a single visit (today unchecking the box cancels all of the outlet's plans), and give MISA an explicit cancellation signal.
-- **No missed/no-show handling.** A planned visit whose date passes stays `planned` indefinitely; there is no overdue state or workflow for visits that didn't happen.
+1. ~~Cancellations not propagated to MISA~~ — resolved: `cancel()` on the sync port enqueues a cancellation message per cancelled visit.
+2. ~~No `cancelled` visit status~~ — resolved: planned visits are cancelled in place, kept with their evidence as audit records.
+3. **Partial overdue** — overdue detection is derived (no data-model change), but there is no dedicated "overdue visit list" beyond the schedule filter preset, and no automated status flip.
+4. **No per-visit cancel** — only cancels via the outlet form (uncheck "Schedule a visit").
+5. **No re-activation** — cancelled is terminal; schedule a new visit instead.
+6. **Mock retry can't distinguish payloads** — the mock `cancel` delegates to `enqueue`; a real adapter sends a different MISA cancel payload.
+7. **No no-show workflow** — there's no automated status for no-shows.
+8. **Reporting still minimal** — dashboard is a single-page snapshot.
